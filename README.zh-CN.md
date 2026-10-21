@@ -105,6 +105,18 @@ python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --agent cli
 
 ## 准备
 
+**不确定自己装没装、怎么配？先跑这一条，它会把该做的逐项列给你：**
+
+```bash
+python3 ~/.claude/skills/novel-pipeline/scripts/doctor.py
+```
+
+它查 Python 版本、`openai` 包、API key、接口连通性和工作目录，每项不过就直接给出照着做的下一步。缺包可以让它自己装：加 `--fix`。
+
+**完全不想自己弄**：把 doctor 的输出整段发给你的 agent，说「帮我按这个配好」——除了注册账号和充值必须你本人来，装包、建目录、写配置它都能代劳。
+
+手动的话只有两件事：
+
 ```bash
 python3 --version          # 3.9 或更新
 pip install openai

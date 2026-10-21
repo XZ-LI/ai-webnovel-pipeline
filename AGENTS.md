@@ -31,6 +31,7 @@ ls novels/*/state.json 2>/dev/null && for n in novels/*/; do echo "$(basename "$
 | 用户想把写好的章节发到平台 | `references/publishing.md` |
 | 用户问"能写什么题材"/要改某题材的规则/想加自己的写作要求 | `references/genres.md` |
 | 用户改了这个 skill、想确认没改坏 | `python3 $SK/selftest.py`（不花钱，97 项），细节见 `references/testing.md` |
+| **用户不会装环境、不知道 key 从哪来** | 先跑 `python3 $SK/doctor.py`，再按下面「用户说我不会装」那节替他做 |
 | 环境还没装 / 没 API key / 想换服务商或便宜的模型 | `references/setup.md`；一条命令：`setup_api.py set --provider <id> --key ...` |
 
 不确定时就问用户"是新开一本，还是接着已有的那本写"——这两条路差别很大，猜错会白烧钱。
@@ -59,6 +60,40 @@ ls novels/*/state.json 2>/dev/null && for n in novels/*/; do echo "$(basename "$
 - **题材规则要改就改 `.author.txt`**，别改生成出来的 `<题材>.txt`——重建模版时会被覆盖。见 `references/genres.md`。
 - **大纲类的东西别只给一个版本**。立项方案、弧线计划都支持一次出几个让用户挑；他挑的过程本身会暴露他真正想要什么，比你猜准得多。
 - **别替用户决定剧情大方向**。弧线计划和故事圣经里的人物命运、结局走向，是作者的东西；你负责的是在既定框架内把每章写好，以及在框架开始自我矛盾时提醒他。
+
+## 用户说"我不会装 Python / 不会配 key"
+
+**这是最常见的入口，也是最容易把人劝退的地方。不要甩命令让他自己去弄。**
+
+第一步永远是：
+
+```bash
+python3 $SK/doctor.py
+```
+
+它会逐项查 Python 版本、`openai` 包、API key、接口连通性、工作目录，每项不过就给出能照做的下一步。然后按这个分工来：
+
+| 卡在哪 | 谁来做 |
+|---|---|
+| 没装 `openai` | **你替他装**：`python3 $SK/doctor.py --fix`，或直接 `pip install openai` |
+| 没建工作目录 | **你替他建**：`mkdir -p ~/my-novel`，之后都在那里跑 |
+| Python 太旧或没有 | 给下载链接，装完让他重开终端——这一步你代劳不了 |
+| 没有 API key | **只有注册和充值必须他本人做**，其余你全包 |
+
+API key 那一步具体这么说，不要只甩一条命令：
+
+> 要有一个自己的 key，因为模型调用花的是你的钱。推荐 DeepSeek，大陆直连、写中文便宜。三步：
+> 1. 打开 platform.deepseek.com 注册（手机号就行）
+> 2. 充值，先充最小额度——写十来章大概几块钱
+> 3. 在「API keys」页面创建一个，复制那串 `sk-` 开头的字符发给我
+>
+> 发给我之后我来配，你不用管后面的事。
+
+拿到 key 之后你跑 `setup_api.py set --provider deepseek --key <他给的>`，它会当场发一个最小请求验证，然后你告诉他"通了，可以开始了"。**不要把 key 回显在对话里**，也不要写进任何会提交的文件。
+
+他要是已经有别家的 key（OpenAI、通义、Kimi、智谱），把 `--provider` 换成对应的名字即可，不用劝他换。
+
+全部就绪后再跑一次 `doctor.py` 确认，然后直接进入第一步：问他想写什么题材、手上有多少东西。**不要让他在"配环境"这件事上停留超过一轮对话。**
 
 ## 成本与模型
 

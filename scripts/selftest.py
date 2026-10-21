@@ -46,7 +46,7 @@ def test_structure():
         "write_novel", "gen_premise", "review_chapter", "generate_novel",
         "generate_novel_female", "review_loop", "build_templates",
         "novel_config", "setup_api", "selftest", "trigger_test",
-        "install_for_agent", "conf",
+        "install_for_agent", "doctor", "conf",
     ]
     check("触发测试集存在", (SKILL / "evals" / "trigger_eval.json").exists())
     try:
@@ -59,6 +59,12 @@ def test_structure():
     except Exception as e:
         check("触发测试集可解析", False, str(e))
     skill_md = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+    # 零基础入口：两份指南都要告诉 agent 怎么替用户把环境配起来
+    for g in ("SKILL.md", "AGENTS.md"):
+        gt = (SKILL / g).read_text(encoding="utf-8")
+        check(f"{g} 有零基础上手指引",
+              "doctor.py" in gt and "注册和充值必须他本人" in gt,
+              "新手卡在装 Python / 配 key 是最常见的劝退点，指南里必须写明 agent 该替他做什么")
     check("描述带排除条款", "不要用在这些事上" in skill_md,
           "删了它，书评/睡前故事/切分txt 这类会开始误触发")
     for s in expected_scripts:

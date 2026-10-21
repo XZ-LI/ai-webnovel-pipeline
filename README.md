@@ -105,6 +105,18 @@ Each entry file is a thin pointer back to the same `AGENTS.md`, so the content n
 
 ## Setup
 
+**Not sure what you have or how to configure it? Run this first — it lists exactly what is missing:**
+
+```bash
+python3 ~/.claude/skills/novel-pipeline/scripts/doctor.py
+```
+
+It checks the Python version, the `openai` package, your API key, whether the endpoint answers, and your working directory, and gives a concrete next step for anything that fails. Add `--fix` to let it install the missing package itself.
+
+**If you would rather not deal with it**: paste the whole doctor output to your agent and say "set this up for me". Only signing up and topping up have to be done by you; installing, creating directories and writing the config it can all do on your behalf.
+
+By hand there are only two things:
+
 ```bash
 python3 --version          # 3.9 or newer
 pip install openai
