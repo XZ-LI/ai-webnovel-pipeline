@@ -49,8 +49,19 @@ python3 $SK/generate_novel.py --category <题材> --learn       # 读全部简�
 
 ## 用法三：review_loop 迭代出写作细则（最贵，也是 A 级的来路）
 
+**先加 `--no-excerpts`。** 这个开关决定了跑完能不能拿到可分发的规则，实测差 8.7 倍：
+
+| 跑法 | 种子 | 每轮攒下的规则 | 最高分 |
+|---|---|---|---|
+| 种子带原著节选 | 5655 字 | **85 字/轮** | 7.6（10 轮） |
+| 种子不带节选 | 703 字 | **744 字/轮** | 7.5（2 轮） |
+
+原因是：种子里塞了高分作品的正文节选，模型有东西可以直接模仿，就不必把"这个品类好在哪里"写成明文规则；把节选撤掉，它被迫把观察写成规则。而**规则才是能随 skill 分发的东西**——节选是别人的作品，打包前必须剥掉，一剥就什么都不剩（这正是 B 级题材只有评分维度、没有写作细则的由来）。
+
+按 744 字/轮算，任一题材跑 6 轮能攒出约 4400 字规则，和内置的西方奇幻同量级。
+
 ```bash
-python3 $SK/review_loop.py --category <题材> --source-dir corpus/男频
+python3 $SK/review_loop.py --category <题材> --source-dir corpus/男频 --no-excerpts
 python3 $SK/review_loop.py --category <题材> --max-iter 3 --target 8.5
 python3 $SK/review_loop.py --category <题材> --resume          # 接着上次跑
 python3 $SK/review_loop.py --category <题材> --learn-only      # 只推评分细则，不生成
@@ -82,5 +93,7 @@ python3 $SK/build_templates.py --repo <你的工作目录>
 工作目录里要有 `review_loop/`（以及可选的 `generate_novel*.py`，没有就用 skill 自带的）。该题材会自动升级标注成"已迭代 N 轮，采用第 M 轮（评审分 X）"。
 
 **要分发给别人就保留默认的 `--quotes strip`**：评分细则里常会引用真实商业作品的原文片段做示例，默认会剥掉引文只留判分标准。自己本机想看引文用 `--quotes keep`，但别把那样生成的 assets 发出去。
+
+固化回 skill 时注意：`build_templates.py` 会自动跳过已经提升到通用手艺层的那 31 条规则（见 `genres.md`），所以题材层里留下的是真正题材专属的部分，不会和共享层重复。
 
 如果只是想给某个题材补几条自己的规则，不必跑 review_loop——直接写 `assets/prompts/<性别>/<题材>.author.txt`，见 `genres.md`。

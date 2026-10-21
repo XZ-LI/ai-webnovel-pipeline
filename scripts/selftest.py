@@ -92,6 +92,15 @@ def test_structure():
     check("题材规则层 37 份", len(prompts) == 37, f"实际 {len(prompts)}")
     check("题材模版 37 份", len(tmpls) == 37, f"实际 {len(tmpls)}")
     check("题材总览 INDEX.md", (SKILL / "assets/templates/INDEX.md").exists())
+    craft = SKILL / "assets" / "prompts" / "_universal_craft.txt"
+    check("通用手艺层存在", craft.exists())
+    if craft.exists():
+        ct = craft.read_text(encoding="utf-8")
+        n_rules = ct.count("【")
+        check("通用手艺层规则数充足", n_rules >= 25, f"只有 {n_rules} 条")
+        check("通用手艺层已泛化人名",
+              not any(w in ct for w in ("克莱德", "艾德里安", "莉瑟", "马里斯", "龙血")),
+              "示例里还留着西方奇幻的专属人名/设定，会被推进其他题材的书里")
     empty = [p.name for p in prompts if len(p.read_text(encoding="utf-8").strip()) < 200]
     check("规则层都非空", not empty, f"过短：{empty[:3]}")
     no_disc = [p.name for p in prompts if "不要照搬" not in p.read_text(encoding="utf-8")[:300]]
@@ -165,6 +174,9 @@ def test_prompt_assembly(tmp: Path):
         for a in range(1, 11):
             f.write(json.dumps({"arc": a, "start": (a - 1) * 30 + 1, "end": a * 30,
                                 "digest": f"第{a}弧提要"}, ensure_ascii=False) + "\n")
+
+    check("通用手艺层会被加载", len(wn.load_universal_craft()) > 2000,
+          f"实际 {len(wn.load_universal_craft())} 字")
 
     rendered = wn.format_bible(bible)
     check("硬约束渲染置顶", rendered.index("绝对不可违反") < rendered.index("角色档案"))
