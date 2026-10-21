@@ -1,0 +1,74 @@
+# 番茄小说（fanqienovel.com）发章配置模板
+#
+# 用法：复制成 fanqie_<书名>.yaml，把 <NOVEL_ID> 换成你作品后台 URL 里那串数字，
+#      把 <书名> 换成作品名（URL 里需要百分号编码，直接从浏览器地址栏复制最稳）。
+# 作品必须先在平台后台建好并过审 —— 脚本只负责发章，不负责建书。
+
+# ── 账号 ──────────────────────────────────────────────────────────────────────
+# 番茄走手机号/扫码登录，这里留空；login 会打开真实浏览器窗口让你自己登。
+account:
+  username: ""
+  password: ""
+
+# ── 作品标识 ──────────────────────────────────────────────────────────────────
+# 必填。作品后台 URL 里的那串数字，缺了它拼不出本章编辑器地址。
+novel_id: "<NOVEL_ID>"
+
+# ── URL ───────────────────────────────────────────────────────────────────────
+login_url: "https://fanqienovel.com"
+auth_check_url: "https://fanqienovel.com/main/writer/<NOVEL_ID>"
+auth_check_text: ""
+
+chapter_list_url: "https://fanqienovel.com/main/writer/chapter-manage/<NOVEL_ID>&<书名的URL编码>?type=1"
+new_chapter_button: "新建章节"
+
+# 留空。脚本会在每次发布成功后自动捕获下一章的真实编辑器地址并存进 state，
+# 手填一个旧地址会覆盖已有章节的草稿。
+new_chapter_url: ""
+
+# ── 选择器（2026 年中确认可用，平台改版时要重新用 DevTools 核对）────────────────
+selectors:
+  username: ""
+  password: ""
+  login_submit: ""
+
+  chapter_number: "input.serial-input:not([placeholder])"
+  chapter_title: "input.serial-editor-input-hint-area"
+  chapter_content: ".ProseMirror"
+  chapter_submit: ".publish-button"
+
+# ── 编辑器类型 ────────────────────────────────────────────────────────────────
+# ProseMirror 只认剪贴板粘贴，脚本里已按这个走，别改成 textarea。
+content_editor_type: "prosemirror"
+
+# ── 章节标题来源 ──────────────────────────────────────────────────────────────
+# .txt 第一行作标题、其余作正文 —— 和 write_novel.py 的产出格式配套。
+title_from: "first_line"
+
+# ── 登录超时（秒）────────────────────────────────────────────────────────────
+login_timeout_seconds: 300
+
+# ── 点“下一步”之后的弹窗序列（顺序敏感，平台加弹窗时要在这里补）──────────────
+confirm_popups:
+  - wait_for: ".arco-modal"
+    action: click
+    button: "提交"
+
+  # 2026-05 新增：内容检测方式 —— 选不限次数的基础检测
+  - wait_for: ".arco-modal"
+    action: click
+    button: "仅基础检测"
+
+  - wait_for: ".arco-modal"
+    timeout: 5000
+    action: click_if_present
+    button: "提交"
+
+  - wait_for: ".arco-modal .arco-radio"
+    action: radio_then_click
+    radio: "否"
+    button: "确认发布"
+
+# ── 成功判定 ──────────────────────────────────────────────────────────────────
+submit_success_text: ""
+submit_success_url_pattern: ""

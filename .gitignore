@@ -1,0 +1,10 @@
+# 本机自检用的私人词表，不分发
+evals/private_terms.txt
+
+# 使用者自己的 API 配置（里面有明文 key）
+novel.config.json
+
+# 运行产物
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,35 @@
+# 七猫小说（qimao.com）发章配置模板
+#
+# 用法：复制成 qimao_<书名>.yaml，chapter_list_url 直接从浏览器地址栏整条复制过来
+#      （里面带作品 id 和标题编码）。作品要先在后台建好。
+#
+# 注意：七猫的编辑器与弹窗逻辑在 uploader 里走的是通用分支，比番茄脆弱。
+#      第一次务必 --headed --batch-size 1 盯着跑完一章。
+
+account:
+  username: ""
+  password: ""
+
+login_url: "https://zuozhe.qimao.com/front/register-login/login"
+auth_check_url: "https://zuozhe.qimao.com/front/index"
+auth_check_text: ""
+
+chapter_list_url: "https://zuozhe.qimao.com/front/book-upload?id=<BOOK_ID>&title=<书名的URL编码>"
+new_chapter_button: "新建章节"
+new_chapter_url: ""
+
+selectors:
+  chapter_number: ""
+  chapter_title: ""
+  chapter_content: ""
+  chapter_submit: ""
+
+# 七猫是普通 contenteditable（div.q-contenteditable.book），insert_text 可用
+content_editor_type: "textarea"
+
+title_from: "first_line"
+login_timeout_seconds: 300
+
+# 七猫的两个弹窗（版权确认带倒计时、确认发布）由脚本里的通用处理走，
+# 需要固定顺序时按番茄模板的写法补进来。
+confirm_popups: []

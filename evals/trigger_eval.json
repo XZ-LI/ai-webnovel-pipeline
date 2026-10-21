@@ -1,0 +1,28 @@
+{
+  "skill": "novel-pipeline",
+  "说明": "触发测试集。should_trigger=true 的是该用上这个 skill 的提问，false 的是近似但需要别的东西的提问——后者才是重点，它们和 skill 共享关键词，描述写得太宽就会误触发。用法见 references/testing.md。",
+  "queries": [
+    {"query": "我想写本小说", "should_trigger": true, "考点": "最短的入口，什么信息都没给"},
+    {"query": "帮我写一本玄幻网文，主角重生那种", "should_trigger": true, "考点": "明确说了网文和题材"},
+    {"query": "接着写下一章", "should_trigger": true, "考点": "续写，没提项目名也该认出来"},
+    {"query": "我这本书写到第 40 章了，想往下再写十章，但怕人物性格跑偏", "should_trigger": true, "考点": "长篇一致性，正是这个 skill 的核心"},
+    {"query": "有没有办法让 AI 帮我日更，一天两章那种", "should_trigger": true, "考点": "日更，没提任何脚本名"},
+    {"query": "我有个点子：重生成反派的管家，想保住小姐这条命。能帮我展开成一本书吗", "should_trigger": true, "考点": "给了思路，走入口 B"},
+    {"query": "我手上有一份人物设定和世界观文档，能不能基于它开一本连载", "should_trigger": true, "考点": "带设定进来，走入口 C"},
+    {"query": "第三章读起来不对劲，你看看哪里有问题", "should_trigger": true, "考点": "诊断改稿"},
+    {"query": "把写好的章节发到番茄小说，每天两章", "should_trigger": true, "考点": "发章"},
+    {"query": "我想写快穿文，但不知道这个品类读者爱看什么", "should_trigger": true, "考点": "题材模版里就有读者预期"},
+    {"query": "下一弧的剧情方向给我几个选择", "should_trigger": true, "考点": "弧线多版本"},
+
+    {"query": "帮我写一篇年终总结，大概八百字", "should_trigger": false, "考点": "也是写作，但不是长篇小说"},
+    {"query": "给《三体》写一篇两千字的书评", "should_trigger": false, "考点": "评论而非创作"},
+    {"query": "分析一下番茄小说免费榜前五十的题材分布", "should_trigger": false, "考点": "命中「番茄小说」但要的是数据分析"},
+    {"query": "我的小说网站后端报 500，帮我看下日志", "should_trigger": false, "考点": "命中「小说」但是写代码"},
+    {"query": "把这段中文翻译成英文：他举起掌，铜铃柄在指尖跳出细电", "should_trigger": false, "考点": "句子来自网文但任务是翻译"},
+    {"query": "帮我润色这封辞职邮件", "should_trigger": false, "考点": "润色但不是小说章节"},
+    {"query": "写一个 Python 脚本，把 txt 按章节切分成多个文件", "should_trigger": false, "考点": "命中「章节」但是写脚本"},
+    {"query": "给我讲讲网络小说这个行业的商业模式", "should_trigger": false, "考点": "命中「网络小说」但要的是行业科普"},
+    {"query": "我要给孩子讲个睡前故事，五分钟那种", "should_trigger": false, "考点": "创作故事但不是长篇连载"},
+    {"query": "这本小说的版权授权合同该注意什么", "should_trigger": false, "考点": "命中「小说」但是法务问题"}
+  ]
+}
