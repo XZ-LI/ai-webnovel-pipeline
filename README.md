@@ -10,6 +10,40 @@ You need no corpus of your own, and you do not need the plot worked out in advan
 
 **The genre rules are reverse-engineered from a 1,110-novel corpus**, not hand-written prompts. See [where the rules come from](#where-the-rules-come-from).
 
+## Starting from zero, in five minutes
+
+No Python, no API experience, no idea what a terminal is — that is fine. The trick is that **you do not install anything yourself; you have the AI do it.**
+
+**Step 1: get an AI coding tool.** Skip this if you already use Claude Code, Cursor, Cline or similar. If you do not, install one the way you would install any ordinary app — [Qoder](https://qoder.com) and [Trae](https://trae.cn) are the easiest route inside mainland China; elsewhere Claude Code or Cursor are fine.
+
+**Step 2: paste this whole block to it.**
+
+```
+Please install this novel-writing tool for me:
+https://github.com/XZ-LI/ai-webnovel-pipeline
+
+Please:
+1. clone it somewhere sensible on my machine
+2. create a separate folder for my novels
+3. run scripts/doctor.py from the skill directory inside that folder, and
+   follow its instructions to get the environment working
+4. run scripts/install_for_agent.py --list, and if you are on that list,
+   generate your own entry file so you can read the full guide later
+5. install any missing packages yourself — I do not know Python
+6. for anything that needs me personally (signing up, paying), walk me
+   through it step by step and I will report back
+
+Once everything is ready, start me on my first novel.
+```
+
+**Step 3: it will ask you to sign up for a model provider.** This part only you can do — create an account, add the smallest top-up (ten-odd chapters costs about a dollar on DeepSeek), generate an API key, and paste the `sk-...` string back. It handles the rest.
+
+**Step 4: say "I want to write a novel".** It will ask three things — which genre, how much you already have (nothing is a valid answer), and which readership — then hand you several opening options to choose from.
+
+Chapters are plain `.txt` files under `novels/<title>/chapters/` in your folder; double-click to read them.
+
+---
+
 ## What problem this solves
 
 Writing one good chapter is easy. The hard part is that **chapter 200 still remembers what chapter 3 planted**. Six hundred thousand characters do not fit in any model's context window, so if you just keep saying "write the next chapter", by chapter twenty the protagonist's voice has drifted and the world rules contradict each other.

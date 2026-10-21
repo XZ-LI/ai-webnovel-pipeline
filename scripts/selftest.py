@@ -90,6 +90,23 @@ def test_structure():
                   (key in a) == (key in skill_body),
                   "两份指南内容分叉了，改完 SKILL.md 要重新生成 AGENTS.md")
         check("AGENTS.md 说明了非 Claude Code 怎么用", "如果你不是 Claude Code" in a)
+    # 零基础入口：必须在技术说明之前，且带着可直接复制给 agent 的那段话
+    for doc, head, kw in (("README.zh-CN.md", "## 零基础：五分钟开始", "ai-webnovel-pipeline"),
+                          ("README.md", "## Starting from zero", "ai-webnovel-pipeline")):
+        f = SKILL / doc
+        if not f.exists():
+            continue
+        ft = f.read_text(encoding="utf-8")
+        check(f"{doc} 有零基础入口", head in ft,
+              "不懂 Python 的人进来先读到的必须是「怎么开始」，不是记忆架构")
+        if head in ft:
+            tech = ft.find("## 它到底解决什么问题") if "zh" in doc else ft.find("## What problem this solves")
+            check(f"{doc} 零基础入口排在技术说明之前", ft.find(head) < tech)
+            seg = ft[ft.find(head):tech]
+            check(f"{doc} 入口里有可复制给 agent 的指令",
+                  kw in seg and "doctor.py" in seg and "install_for_agent" in seg,
+                  "那段话要让 agent 能独立完成 clone、配环境、生成入口文件")
+
     # 双语：两份 README 都要有语言切换，且互相指得到
     for doc, other in (("README.md", "README.zh-CN.md"), ("README.zh-CN.md", "README.md"),
                        ("INTRO.md", "INTRO.zh-CN.md"), ("INTRO.zh-CN.md", "INTRO.md")):
