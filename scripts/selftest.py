@@ -45,7 +45,8 @@ def test_structure():
     expected_scripts = [
         "write_novel", "gen_premise", "review_chapter", "generate_novel",
         "generate_novel_female", "review_loop", "build_templates",
-        "novel_config", "setup_api", "selftest", "trigger_test", "conf",
+        "novel_config", "setup_api", "selftest", "trigger_test",
+        "install_for_agent", "conf",
     ]
     check("触发测试集存在", (SKILL / "evals" / "trigger_eval.json").exists())
     try:
@@ -70,7 +71,25 @@ def test_structure():
             except SyntaxError as e:
                 check(f"语法正确：{s}.py", False, str(e))
 
-    docs = ["README.md", "SKILL.md"] + [
+    # agent 无关性：AGENTS.md 是权威指南，SKILL.md 只是 Claude Code 的壳
+    agents_md = SKILL / "AGENTS.md"
+    check("AGENTS.md 存在（agent 无关的权威指南）", agents_md.exists())
+    if agents_md.exists():
+        a = agents_md.read_text(encoding="utf-8")
+        body = (SKILL / "SKILL.md").read_text(encoding="utf-8").split("---\n", 2)
+        skill_body = body[2] if len(body) > 2 else ""
+        # 抽几条关键纪律，确认两份没分叉
+        for key in ("hard_constraints", "大纲类的东西别只给一个版本", "连摘要一起回退"):
+            check(f"AGENTS.md 与 SKILL.md 同步：{key[:12]}",
+                  (key in a) == (key in skill_body),
+                  "两份指南内容分叉了，改完 SKILL.md 要重新生成 AGENTS.md")
+        check("AGENTS.md 说明了非 Claude Code 怎么用", "如果你不是 Claude Code" in a)
+    ag = load("install_for_agent")
+    check("入口生成器覆盖主流 agent", len(ag.AGENTS) >= 6, f"只有 {len(ag.AGENTS)} 家")
+    check("入口生成器含 Cursor 的 mdc 格式",
+          any(v["fmt"] == "mdc" for v in ag.AGENTS.values()))
+
+    docs = ["README.md", "SKILL.md", "AGENTS.md", "INTRO.md"] + [
         f"references/{n}.md" for n in
         ("from-scratch", "genres", "method", "setup", "corpus", "publishing", "reviewing", "testing")
     ]

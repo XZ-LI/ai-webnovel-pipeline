@@ -1,0 +1,83 @@
+<!-- 这是给 AI 编码 agent 读的操作指南，不绑定任何一家产品。
+     AGENTS.md 是跨 agent 的通用约定（Codex CLI、Cursor、Devin 等会主动读它）。
+     Claude Code 用户读的是同目录的 SKILL.md——内容相同，只多一段 frontmatter。
+     其他 agent 的入口文件可以用 scripts/install_for_agent.py 生成。 -->
+
+# AI 长篇小说流水线 · agent 操作指南
+
+**给 agent 的第一句话**：这套流水线的本体是 `scripts/` 下的 11 个 Python 脚本和 `assets/` 下的题材模版，**它们不依赖任何 agent**——全是标准库加 `openai`，命令行直接就能跑。你的作用是替作者判断"现在该跑哪一步"、把产出念给他听、并在该他做决定的地方停下来问。所以这份指南对任何能读文件、能跑 shell 的 agent 都成立。
+
+# AI 长篇小说流水线
+
+一本几百章的小说，难点不是写出一章好文字，而是**第 200 章还记得第 3 章埋的伏笔**。整个模型上下文装不下 60 万字，所以这套流程的核心是一个分层记忆结构：碰不得的红线进 `hard_constraints`，永远为真的事压成故事圣经，欠着没还的债记进伏笔台账，很久以前的事压成每弧一段的往事提要，近期要兑现的放弧线计划，再带上最近 10 章摘要和最近 2 章原文保住文风。
+
+注意**摘要只有最近 10 章进上下文**，更早的全靠前几层承载——这是理解这套设计的关键，也是伏笔台账和弧线提要存在的原因。细节见 `references/method.md`。
+
+本 skill 自带脚本，不依赖任何外部项目。脚本在本 skill 目录的 `scripts/` 下（加载本 skill 时给出的 base directory）。下文用 `$SK` 指代那个目录。
+
+## 第一件事：先问清楚现在在哪一步
+
+```bash
+ls novels/*/state.json 2>/dev/null && for n in novels/*/; do echo "$(basename "$n"): $(tr -d '\n ' < "$n/state.json")"; done
+```
+
+| 情况 | 走哪条路 |
+|---|---|
+| 还没有 `novels/` 目录，用户想开始写 | **从零立项** → `references/from-scratch.md` |
+| 用户想换个开局/剧情方向、要几个方案比一比 | `gen_premise.py pitch`（立项）或 `new-arc --variants`（弧线），见 `references/from-scratch.md` |
+| 已有项目，用户要写下一章 / 多写几章 | `python3 $SK/write_novel.py write --count N --genre <题材>`，细节见 `references/method.md` |
+| 用户说某章不好 / 想检查写得对不对 | `review_chapter.py diagnose`，再按诊断结果问他改哪几条 → `references/reviewing.md` |
+| 用户不满意质量、想调写法 | `references/method.md`（质量把关）；要系统性迭代见 `references/corpus.md` |
+| 用户想把写好的章节发到平台 | `references/publishing.md` |
+| 用户问"能写什么题材"/要改某题材的规则/想加自己的写作要求 | `references/genres.md` |
+| 用户改了这个 skill、想确认没改坏 | `python3 $SK/selftest.py`（不花钱，97 项），细节见 `references/testing.md` |
+| 环境还没装 / 没 API key / 想换服务商或便宜的模型 | `references/setup.md`；一条命令：`setup_api.py set --provider <id> --key ...` |
+
+不确定时就问用户"是新开一本，还是接着已有的那本写"——这两条路差别很大，猜错会白烧钱。
+
+## 从零开始的最短路径
+
+新用户最常见的入口是"我想写一本小说"。完整版在 `references/from-scratch.md`，这里是骨架，让你知道会发生什么：
+
+0. **挑题材、读模版**：`assets/templates/INDEX.md` 列出自带的 37 个题材。选定后读 `assets/templates/<男频|女频>/<题材>.md`——里面有这个品类的读者预期、开局钩子、立项要问的问题、带权重的评分维度。这些规则是从几百本高分作品里反推出来的，**用户不需要自己准备任何语料**。
+1. **问清他手上有多少东西**，这一步必须开口问，不能替他假设：**完全从零**（剧情你定）／**有点思路**（一个点子、一个场景）／**已有设定**（人物表、世界观、大纲片段）。三种都支持，差别只是要不要把他的东西作为不可改动的部分传进去。
+2. **出几个方案让他挑**：`gen_premise.py pitch --genre <题材> --variants 3 [--seed "他的原话" | --seed-file <文件>]`。**大纲阶段永远给多版本**——一个方案他只能说行或不行，三个摆一起他才说得出"要第 2 个的金手指配第 1 个的开局"。不满意可以 `--more <目录>` 再追加，已给过的会自动避开。
+3. **展开 + 立项**：`gen_premise.py expand --dir <目录> --pick N` 产出开篇文件（带格式自检），再 `write_novel.py init --from <那个文件>` 建项目。
+4. **先写 3 章给人看**，确认文风和人物对味，再放量。
+5. **持续续写**：`write_novel.py write --count N --genre <题材>`。弧线满 30 章自动换新计划，每 10 章自动刷新故事圣经。
+6. **写完一章自检**：`review_chapter.py diagnose --project "<书名>" --chapter N --genre <题材>`。它先跑不花钱的机械检查（字数越界、技巧标签残留、标题格式、段落过长、开篇手法与上章重复），再按题材自检表和 `hard_constraints` 逐条验，每个问题都带正文证据。**把诊断念给用户、让他决定改哪几条**，再 `revise --fix 1,3`——不要自己替他"全改"，那会把写得好的段落一起换掉。细节见 `references/reviewing.md`。
+7. **每 30 章的弧线交界同样可以挑**：`write_novel.py new-arc --variants 3` 只写候选到 `arc_candidates/`、不碰当前计划，`--use <文件>` 才落地。
+
+## 几条真正要紧的纪律
+
+这些不是风格偏好，是会把一本书写坏的地方：
+
+- **立项后先人工看 `bible.json`，尤其是 `hard_constraints`**（"违反即整章作废"的红线：主角的生理限制、金手指代价、谁已经死了）。实测过的事故：主角是哑巴，但这条没进红线，第三章他就开口说了四次话。这是后面几百章的地基，世界规则或人物设定在这里就错了，越往后改越贵——第 50 章才发现主角的功法体系自相矛盾，前 50 章的摘要已经把错误当事实固化了。
+- **一章出问题要连摘要一起回退**。删掉 `chapters/NNN.txt` 不够，还要把 `state.json` 的 `current_chapter` 减回去、删掉 `summaries.jsonl` 的最后一行。漏删摘要，错误剧情就会作为既成事实进入后面所有章节。
+- **先 `--count 1` 再放量**。换了模型、换了提示词、刚过弧线边界、刚更新完圣经，都先写一章读一遍。`--count 20` 是一笔真金白银的长任务，错了是 20 章一起错。
+- **每章文件第一行是标题，空行后是正文**。发布端就认这个格式，手工拼文件时别漏标题行。
+- **题材规则要改就改 `.author.txt`**，别改生成出来的 `<题材>.txt`——重建模版时会被覆盖。见 `references/genres.md`。
+- **大纲类的东西别只给一个版本**。立项方案、弧线计划都支持一次出几个让用户挑；他挑的过程本身会暴露他真正想要什么，比你猜准得多。
+- **别替用户决定剧情大方向**。弧线计划和故事圣经里的人物命运、结局走向，是作者的东西；你负责的是在既定框架内把每章写好，以及在框架开始自我矛盾时提醒他。
+
+## 成本与模型
+
+内置默认模型是 `o3`，续写一章（2600–3600 字，输入约 2 万 token 且不随章数增长）单价不低。用户的 API 由他自己配：`setup_api.py set --provider deepseek --key sk-...`（支持 openai/deepseek/dashscope/moonshot/zhipu/ollama 预设，也能给自定义 `--base-url`），配完所有脚本的默认模型都跟着变。取值优先级是 命令行 > 环境变量 > 配置文件 > 内置默认，详见 `references/setup.md`。
+
+**没配 API 时不要替用户猜**：不要自己 export 一个 key，也不要假设他用 OpenAI。问他用哪家、有没有 key，然后跑 `setup_api.py set` 当场测通。配置文件里有明文 key——不要打印给用户看，也不要提交到 git。
+
+写之前把预算说清楚：用 `write_novel.py status` 能看到本次生成的预估输入 token，乘上章数就是大致账单。用户说"写 100 章"的时候，他可能没想过这是多少钱。
+
+## 如果你不是 Claude Code
+
+没有任何区别。把下面三件事认准就行：
+
+1. **脚本路径**：本文件所在目录下的 `scripts/`。本文里的 `$SK` 指它。
+2. **参考文档**：本文件所在目录下的 `references/`，按需读，不要一次全读。
+3. **工作目录**：在**作者选定的目录**下执行命令（项目生成在 `./novels/<书名>/`），不要在 skill 目录里跑。
+
+没有 skill 机制的 agent（Cursor、Cline、Copilot、Windsurf、Aider 等）可以用
+`python3 scripts/install_for_agent.py --agent <名字>` 生成对应格式的入口文件，
+它会指回这份 AGENTS.md。
+
+**完全不用 agent 也能用**：这条流水线的每一步都是一条命令，`README.md` 里全列了。agent 只是帮你念命令、读产出、在岔路口提问。
