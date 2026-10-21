@@ -84,12 +84,20 @@ def test_structure():
                   (key in a) == (key in skill_body),
                   "两份指南内容分叉了，改完 SKILL.md 要重新生成 AGENTS.md")
         check("AGENTS.md 说明了非 Claude Code 怎么用", "如果你不是 Claude Code" in a)
+    # 双语：两份 README 都要有语言切换，且互相指得到
+    for doc, other in (("README.md", "README.zh-CN.md"), ("README.zh-CN.md", "README.md"),
+                       ("INTRO.md", "INTRO.zh-CN.md"), ("INTRO.zh-CN.md", "INTRO.md")):
+        f = SKILL / doc
+        if f.exists():
+            check(f"{doc} 有语言切换链接", other in f.read_text(encoding="utf-8")[:400],
+                  "顶部 400 字内应有指向另一语言版本的链接")
     ag = load("install_for_agent")
     check("入口生成器覆盖主流 agent", len(ag.AGENTS) >= 6, f"只有 {len(ag.AGENTS)} 家")
     check("入口生成器含 Cursor 的 mdc 格式",
           any(v["fmt"] == "mdc" for v in ag.AGENTS.values()))
 
-    docs = ["README.md", "SKILL.md", "AGENTS.md", "INTRO.md"] + [
+    docs = ["README.md", "README.zh-CN.md", "SKILL.md", "AGENTS.md",
+            "INTRO.md", "INTRO.zh-CN.md"] + [
         f"references/{n}.md" for n in
         ("from-scratch", "genres", "method", "setup", "corpus", "publishing", "reviewing", "testing")
     ]

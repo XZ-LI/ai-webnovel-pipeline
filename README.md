@@ -1,359 +1,373 @@
 # ai-webnovel-pipeline
 
-用 AI 写一本中文长篇网络小说，并一直更新下去。
+***English** · [简体中文](./README.zh-CN.md)*
 
-你不需要准备任何语料，也不需要先想好剧情。装好之后在终端里说一句"我想写本小说"，它会带着你把设定定下来、给你几个开局方案挑、建好项目，然后一章一章往下写。
+Write a full-length Chinese webnovel with AI, and keep updating it.
 
-**不限于 Claude Code**：装进 Claude Code 是一个 skill，Cursor / Codex CLI / Cline / Copilot / Windsurf / Aider 都能用（见[下面](#装进别的-ai-编码工具)），什么 agent 都不用、直接跑命令行也成立——流水线本体是 11 个 Python 脚本加 37 份题材模版，零 agent 依赖。
+You need no corpus of your own, and you do not need the plot worked out in advance. Once it is installed, say "I want to write a novel" in your terminal and it will walk you through pinning down the premise, hand you several opening options to choose from, set up the project, and then write chapter after chapter.
 
-**题材规则是从 1,110 部作品的语料库里反推出来的**，不是手写的提示词。细节见[规则从哪来](#规则从哪来)。
+**Not tied to Claude Code**: it installs as a Claude Code skill, and Cursor / Codex CLI / Cline / Copilot / Windsurf / Aider all work too (see [below](#installing-into-other-ai-coding-tools)). It also works with no agent at all, straight from the command line — the pipeline is eleven Python scripts plus 37 genre templates, with zero agent dependency.
 
-## 它到底解决什么问题
+**The genre rules are reverse-engineered from a 1,110-novel corpus**, not hand-written prompts. See [where the rules come from](#where-the-rules-come-from).
 
-让 AI 写一章好文字很容易，难的是**写到第 200 章还记得第 3 章埋的伏笔**。一本 60 万字的小说装不进任何模型的上下文，所以直接开聊"继续写下一章"，写到第二十章人物性格就开始漂、设定开始自相矛盾。
+## What problem this solves
 
-这个 skill 的核心是一套分层记忆：
+Writing one good chapter is easy. The hard part is that **chapter 200 still remembers what chapter 3 planted**. Six hundred thousand characters do not fit in any model's context window, so if you just keep saying "write the next chapter", by chapter twenty the protagonist's voice has drifted and the world rules contradict each other.
 
-| 层 | 存成什么 | 管什么 | 多久更新一次 |
+The core of this skill is a layered memory:
+
+| Layer | Stored as | What it holds | Refresh rate |
 |---|---|---|---|
-| 故事圣经 | `bible.json` | 世界规则、人物档案、总走向，以及一组**绝对不可违反的事实** | 每 10 章自动刷新 |
-| 伏笔台账 | `bible.json` 的 `open_threads` | 埋了还没兑现的东西，以及埋在第几章 | 每章写完自动登记 |
-| 弧线提要 | `arc_digests.jsonl` | 每弧一段往事提要，很久以前的事靠它 | 一弧写满自动压缩 |
-| 弧线计划 | `arc_plan.txt` | 当前 30 章要兑现的事 | 一弧写满自动换 |
-| 摘要 + 近期原文 | `summaries.jsonl` / `chapters/` | 最近 10 章摘要 + 最近 2 章全文 | 每章写完追加 |
+| Story bible | `bible.json` | World rules, character dossiers, overall arc, plus a set of **lines that must never be crossed** | Every 10 chapters |
+| Foreshadowing ledger | `open_threads` in `bible.json` | What has been planted and not yet paid off, and in which chapter | Each chapter |
+| Arc digests | `arc_digests.jsonl` | One paragraph per arc — how the distant past is remembered | When an arc completes |
+| Arc plan | `arc_plan.txt` | What the current 30 chapters must deliver | When an arc completes |
+| Summaries + recent prose | `summaries.jsonl` / `chapters/` | Last 10 summaries + last 2 full chapters | Each chapter |
 
-每写一章只喂这几样进去，所以写到第 300 章，单章成本和第 10 章差不多——实测输入 token 在第 10 章之后就持平在 2 万左右，第 1000 章也是这个数。
+Only these go into each chapter, which is why writing chapter 300 costs about what chapter 10 did — measured input flattens out after chapter 10 at roughly 20k tokens, and chapter 1,000 is the same number.
 
-**那它最多能写多少章？** 没有算术上限，瓶颈是钱和你的耐心。摘要只有最近 10 章进上下文，所以更早的事全靠圣经、伏笔台账、弧线提要这三层扛——伏笔台账让"第 7 章埋的符文"到第 200 章还记得（埋过 30 章会主动提醒该收了），弧线提要让 200 章的书不至于散成"一弧一个独立副本"。
+**So how long can it actually run?** There is no arithmetic ceiling; the limits are budget and patience. Only the last 10 summaries enter the context, so everything earlier is carried by the bible, the ledger and the arc digests — the ledger is what keeps "the rune from chapter 7" alive at chapter 200 (and flags it once 30 chapters pass unpaid), and the digests are what keep a 200-chapter book from degenerating into one self-contained episode per arc.
 
-光靠"喂设定"还不够：几十条设定平铺着喂进去，模型在"把这个场景写顺"的时候就会忽略其中一条。所以圣经里单独有一组 `hard_constraints`——"违反了整章就废"的红线（主角的生理限制、金手指的代价、谁已经死了、哪些力量属于后期），它们会被置顶强调，并在每章动笔前再说一遍。这是实测出来的必要设计：主角设定是哑巴，但这条没进红线时，第三章他就开口说了四次话。
+Feeding setting text in is not enough on its own: with dozens of facts flattened into one prompt, a model will quietly drop one of them to make the current scene work. So the bible carries a separate `hard_constraints` list — the lines that void a chapter if broken (the protagonist's physical limits, the cost of their advantage, who is already dead, which powers belong to the late arcs). They are rendered first and restated immediately before the model starts writing. This is a measured necessity, not a precaution: with a mute protagonist and that fact left out of the list, he spoke four times in chapter three.
 
-## 规则从哪来
+## Where the rules come from
 
-自带 **37 个题材的写作模版**（男频 19 + 女频 18）。它们不是谁坐下来写的十条军规，底座是 **1,110 部作品的语料库**（570 部男频 + 540 部女频，按平台评分分层），在上面跑了三件事：
+The repository ships **37 genre templates** (19 male-channel, 18 female-channel). They are not ten commandments someone sat down and wrote. The foundation is a **1,110-novel corpus** (570 male-channel, 540 female-channel, stratified by platform rating), with three things run on top of it:
 
-1. **逐题材反推评分维度**：每个题材取同品类高分作品，反推"这个品类好在哪里"，产出 **370 项带权重的维度**，每项附 9–10 分与 5 分以下的判分标准。
-2. **写作细则靠自我迭代**：用当前规则生成大纲加 3 章 → 评审模型按那张表逐项打分 → 编辑模型据低分项改写规则 → 再来一轮。7 个题材跑到 10–15 轮，按评审分挑最优那轮。
-3. **提取通用手艺**：把其中一个题材 10 轮攒出的规则逐条审计，**81% 与题材无关**（段落、节奏、对话、信息释放），提成一层 31 条的共享手艺，37 个题材的规则密度因此拉平。
+1. **Per-genre criteria, reverse-engineered**: for each genre, the top-rated works in that category were used to derive what the category is actually good at — **370 weighted criteria**, each with explicit anchors for 9–10 and for below 5.
+2. **Writing rules grown by self-iteration**: generate an outline plus three chapters under the current rules → a reviewer model scores them against those criteria → an editor model rewrites the rules from the low-scoring dimensions → repeat. Seven genres ran 10–15 rounds, with the best round selected by score.
+3. **Genre-independent craft extracted**: auditing one genre's ten rounds of rules line by line showed **81% had nothing to do with the genre** (paragraphs, pacing, dialogue, information release). Those 31 rules were promoted to a shared layer, levelling rule density across all 37 genres.
 
-分析结果已经固化成模版打包在仓库里，**你不用自己准备任何参考资料**。想自己补厚某个题材，用 `review_loop.py --no-excerpts`（实测：种子里有作品节选可抄时每轮只攒 85 字规则，撤掉节选逼它写明文规则则每轮 744 字，差 8.7 倍），见 `references/corpus.md`。
+The analysis is baked into the templates in this repository, so **you need no reference material of your own**. To thicken a genre yourself, use `review_loop.py --no-excerpts` (measured: with imitable excerpts in the seed the loop accumulates 85 characters of rules per round; without them, 744 — a factor of 8.7) and see `references/corpus.md`.
 
-**一个必须说清的限度**：这类评分表重测信度很高，但与读者真实行为的相关性很弱（我另一项研究 [llm-rubric-validity](https://github.com/XZ-LI/llm-rubric-validity) 测到不到 2% 的方差解释率，换评委结论还会翻转）。所以这些规则的价值在于**让文本稳定达到行业基本功**，不是"分数高所以好看"。本项目自己的 A/B 也是这个结论：带模版与不带的评分差在写手自评下 +0.22、换独立评委只剩 +0.06，太小不足以下结论；站得住的是段落形态的一致性。
+**A limit worth stating plainly**: this class of rubric has high test–retest reliability but weak correlation with real reader behaviour — a separate study of mine ([llm-rubric-validity](https://github.com/XZ-LI/llm-rubric-validity)) measured under 2% of variance explained, with the conclusion reversing when the judge changes. So the value of these rules is that they get prose **reliably up to the craft floor**, not "it scores high, therefore it is good". This project's own A/B agrees: the gap between with-templates and without was +0.22 under the model that also wrote the chapters and +0.06 under an independent judge — too small to claim. What held up was consistency of paragraph shape.
 
-## 安装
+## Installing
 
-需要 [Claude Code](https://claude.com/claude-code)。把这个仓库 clone 到 skill 目录：
+You need [Claude Code](https://claude.com/claude-code) for the skill form. Clone into the skills directory:
 
 ```bash
-# 个人安装：所有项目都能用
+# Personal install: available in every project
 git clone https://github.com/XZ-LI/ai-webnovel-pipeline.git ~/.claude/skills/novel-pipeline
 
-# 或者只在某个项目里用
-git clone https://github.com/XZ-LI/ai-webnovel-pipeline.git <你的项目>/.claude/skills/novel-pipeline
+# Or scoped to one project
+git clone https://github.com/XZ-LI/ai-webnovel-pipeline.git <your-project>/.claude/skills/novel-pipeline
 ```
 
-然后新开一个 Claude Code 会话，它会自动出现在可用 skill 列表里——说一句"我想写本小说"就能验证。
+Start a new Claude Code session and it appears in the available skills — say "I want to write a novel" to confirm.
 
-想确认装好了没坏：
+To check the install is intact:
 
 ```bash
 python3 ~/.claude/skills/novel-pipeline/scripts/selftest.py
 ```
 
-113 项检查，不调 API、几秒跑完。
+124 checks, no API calls, runs in seconds.
 
-### 装进别的 AI 编码工具
+### Installing into other AI coding tools
 
-权威指南是仓库根目录的 `AGENTS.md`（跨 agent 的通用约定，Codex CLI 等会主动读它）。Claude Code 读的 `SKILL.md` 内容相同，只多一段 frontmatter。其他工具用这个命令生成各自格式的入口文件：
+The authoritative guide is `AGENTS.md` at the repository root (the cross-agent convention that Codex CLI and others read). The `SKILL.md` that Claude Code reads is the same content plus a frontmatter block. For other tools, generate an entry file in their own format:
 
 ```bash
 python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --list
 python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --agent cursor --dest ~/my-novel
 ```
 
-| 工具 | 入口文件 |
+| Tool | Entry file |
 |---|---|
-| Claude Code | `SKILL.md`（放进 `~/.claude/skills/`） |
-| Codex CLI 等 | `AGENTS.md` |
+| Claude Code | `SKILL.md` (placed under `~/.claude/skills/`) |
+| Codex CLI and others | `AGENTS.md` |
 | Cursor | `.cursor/rules/novel-pipeline.mdc` |
 | Cline | `.clinerules` |
 | GitHub Copilot | `.github/copilot-instructions.md` |
 | Windsurf | `.windsurfrules` |
 | Aider | `CONVENTIONS.md` |
 
-入口文件只是薄薄一层，指回同一份 `AGENTS.md`，内容不会分叉。
+Each entry file is a thin pointer back to the same `AGENTS.md`, so the content never forks.
 
-**完全不用 agent 也行**：下面每一步都是一条命令。agent 的作用是替你判断现在该跑哪一步、把产出念给你听、在该你做决定的地方停下来问。
+**No agent at all also works**: every step below is one command. What an agent adds is judging which step comes next, reading the output back to you, and stopping to ask at the forks.
 
-> 实测只在 Claude Code 上做过（113 项自检、21 条触发测试、A/B 与盲评都在那里跑的）。其他工具的入口文件按各家公开的约定生成，脚本本身与 agent 无关——但我没有逐一实测，遇到问题欢迎提 issue。
+> Tested end to end only on Claude Code (the 124 self-checks, the 21-query trigger suite, the A/B and the blind evaluation all ran there). Entry files for the other tools follow each vendor's published convention and the scripts themselves are agent-agnostic, but I have not verified each one — issues welcome.
 
-## 准备
+## Setup
 
 ```bash
-python3 --version          # 3.9 或更新
+python3 --version          # 3.9 or newer
 pip install openai
 ```
 
-**建一个专门的工作目录**，比如 `~/my-novel`，之后一直在那里开 Claude Code。所有文件都生成在当前目录下。
+**Make a dedicated working directory**, say `~/my-novel`, and always open your agent there. Everything is generated relative to the current directory.
 
-### 配你自己的 API
+### Configuring your own API
 
-模型调用花的是你自己的钱，用哪家、用哪个模型由你定。一条命令设好并当场测通：
+Model calls are billed to you, so which provider and which model is your decision. One command sets it and verifies the connection:
 
 ```bash
-python3 ~/.claude/skills/novel-pipeline/scripts/setup_api.py list     # 看支持哪些服务商
+python3 ~/.claude/skills/novel-pipeline/scripts/setup_api.py list     # see supported providers
 python3 ~/.claude/skills/novel-pipeline/scripts/setup_api.py set --provider deepseek --key sk-...
 ```
 
-或者直接跟 Claude 说"帮我配一下 API，我用 DeepSeek，key 是 …"，它会去跑这个命令。
+Or just tell your agent "set up my API, I'm using DeepSeek, the key is …" and it will run the command.
 
-内置的服务商预设（都是 OpenAI 兼容接口，模型名以各家文档为准）：
+Built-in provider presets (all OpenAI-compatible; model names per each vendor's docs):
 
-| id | 服务商 | 备注 |
+| id | Provider | Note |
 |---|---|---|
-| `openai` | OpenAI 官方 | 默认，中文网文够用但偏贵 |
-| `deepseek` | DeepSeek | 写中文长篇性价比高，长篇连载常见选择 |
-| `dashscope` | 阿里云百炼（通义千问） | 中文语感好 |
-| `moonshot` | 月之暗面 Kimi | 长上下文友好 |
-| `zhipu` | 智谱 GLM | |
-| `ollama` | 本地 Ollama | 不花钱，但 3000 字一章对本地小模型是硬仗 |
+| `openai` | OpenAI | Default; fine for Chinese webnovels but pricey |
+| `deepseek` | DeepSeek | Good value for long-form Chinese, a common choice for serials |
+| `dashscope` | Alibaba Bailian (Qwen) | Strong Chinese register |
+| `moonshot` | Moonshot (Kimi) | Long-context friendly |
+| `zhipu` | Zhipu GLM | |
+| `ollama` | Local Ollama | Free, but 3,000 characters a chapter is a hard ask of a small local model |
 
-上面没有的服务商、公司内网或代理，直接给地址：
-
-```bash
-python3 .../setup_api.py set --base-url https://你的地址/v1 --key sk-... --model 模型名
-```
-
-`set` 会自动发一个最小请求测通，并按失败原因给出下一步（模型名和服务商对不上 / key 不对 / 连不上 / 余额不足各有不同提示）。设置存在工作目录的 `novel.config.json`（权限 600，**不要提交到 git**）；加 `--global` 存到 `~/.novel-pipeline/config.json` 让所有项目共用。
-
-查看和重测：
+For a provider not listed, an internal endpoint or a proxy, just give the address:
 
 ```bash
-python3 .../setup_api.py show      # 当前生效的配置，key 打码
-python3 .../setup_api.py test      # 只测不改
+python3 .../setup_api.py set --base-url https://your-endpoint/v1 --key sk-... --model model-name
 ```
 
-**优先级**：命令行 `--model` > 环境变量（`OPENAI_API_KEY` / `OPENAI_BASE_URL` / `NOVEL_MODEL`）> 配置文件 > 内置默认。所以你也可以完全不写配置文件，只 `export OPENAI_API_KEY=sk-...` 临时用；想给评审和题材分析单独指定更强的模型，就 `--review-model` / `--analyze-model`。
+`set` sends a minimal request to verify, and on failure tells you which thing to fix (model name not valid for this provider / bad key / cannot connect / out of quota each get a different hint). Settings live in `novel.config.json` in the working directory (mode 600, **do not commit it**); `--global` writes to `~/.novel-pipeline/config.json` to share across projects.
 
-只有最后一步"自动发到平台"需要额外装 `patchright loguru pyyaml`，不发就不用管。
+Inspect and re-test:
 
-## 交互流程
-
-下面是真实的使用过程。你只需要正常说话，命令由 Claude 去跑。
-
-### 第 0 步 — 第一次：配 API
-
-见上面「配你自己的 API」。没配的话，第一次写东西会直接告诉你三种设法，不会糊里糊涂地失败。
-
-### 第 1 步 — 你开口
-
-```
-你：我想写本小说
+```bash
+python3 .../setup_api.py show      # effective config, key masked
+python3 .../setup_api.py test      # test only, changes nothing
 ```
 
-Claude 会先问三件事，不会直接开始写：
+**Precedence**: command-line `--model` > environment (`OPENAI_API_KEY` / `OPENAI_BASE_URL` / `NOVEL_MODEL`) > config file > built-in default. So you can skip the config file entirely and just `export OPENAI_API_KEY=sk-...` for a one-off; to give the reviewer or the genre analysis a stronger model, use `--review-model` / `--analyze-model`.
+
+Only the final "publish to platform" step needs extra packages (`patchright loguru pyyaml`); skip it if you are not publishing.
+
+## How a session goes
+
+Below is the actual flow. You talk normally; your agent runs the commands.
+
+### Step 0 — First time: configure the API
+
+See above. If it is not configured, the first write tells you the three ways to set it rather than failing obscurely.
+
+### Step 1 — You open your mouth
 
 ```
-Claude：好。先定三件事——
-       1. 想写什么题材？我这里有 37 个，男频比如西方奇幻、都市高武、东方仙侠，
-          女频比如快穿、宫斗宅斗、豪门总裁。说不出来也行，你描述想看的故事，我来对。
-       2. 你手上有多少东西了？
-          A 完全从零，剧情你定
-          B 有点想法（一个点子、一个场景、一个主角都算）
-          C 已经有设定（人物表、世界观、大纲片段）
-       3. 给男频读者还是女频读者看？
+You: I want to write a novel
 ```
 
-第 2 问是关键。三种都支持，差别只是你的东西会不会被当成不可改动的部分沿用：
-
-- **A 完全从零**：方案全部由它提。
-- **B 有点想法**：你说的原话会原样传进去。"重生成反派的管家，想保住小姐这条命"这种一句话就够。
-- **C 已有设定**：把文件给它，你已经定下来的人物、设定、禁忌不会被改掉，它只在你没定的地方发挥。
-
-### 第 2 步 — 它给你几个方案挑
-
-这是**永远会给多个版本**的环节：
+It asks three things before writing anything:
 
 ```
-Claude：按「重生成管家」这条思路出了 3 个方案，它们的金手指和核心矛盾完全不同：
-
-方案 1：《影仆》
-  卖点：他能听见小姐三天后的死法，但每用一次，他自己就老一岁
-  金手指：预知代价是寿命  核心矛盾：救人与自毁的拉扯
-
-方案 2：《第二次侍奉》
-  卖点：上一世他亲手递上那杯毒酒，这一世他要抢在自己之前拦下自己
-  金手指：保留前世记忆  核心矛盾：和"前世的自己"对抗
-
-方案 3：《家训第七条》
-  卖点：管家守则第七条写着"仆人不得先于主人死亡"——这不是规矩，是契约
-  金手指：被咒法绑定的不死之身  核心矛盾：不死带来的反噬与恐惧
-
-要哪个？也可以说"第 2 个的金手指配第 1 个的开局"，或者让我再来三个。
+Agent: Right. Three things first —
+       1. Which genre? There are 37. Male-channel examples: western fantasy,
+          modern martial arts, eastern cultivation. Female-channel: quick
+          transmigration, palace intrigue, CEO romance. If you can't name one,
+          describe the story you want and I'll match it.
+       2. How much do you already have?
+          A — nothing, you decide the plot
+          B — a loose idea (one concept, one scene, one character counts)
+          C — existing material (character sheets, worldbuilding, outline fragments)
+       3. Writing for male-channel or female-channel readers?
 ```
 
-你可以：挑一个、让它混搭、或者说"都不行再来几个"（它会自动避开已经给过的方向）。
+Question 2 is the important one. All three are supported; the difference is only whether your material is treated as immovable:
 
-**为什么先给摘要不直接写**：一次写满三份"大纲 + 第一章"，你看完要扔掉两份，钱白花。摘要便宜，展开才贵。
+- **A — from nothing**: it proposes everything.
+- **B — a loose idea**: your exact words are passed through verbatim. "Reborn as the villain's butler, trying to keep the young lady alive" is enough.
+- **C — existing material**: hand it the file; the characters, rules and prohibitions you have already fixed will not be altered, it only fills in what you left open.
 
-### 第 3 步 — 展开、立项、检查地基
+### Step 2 — It hands you several options
 
-挑定后它会写出完整大纲（核心设定、主角档案含外形和成长弧、感情线、三段环境迁移、反派、前十章大纲）+ 第一章正文，然后建项目，并且**把故事圣经读给你听**：
-
-```
-Claude：项目建好了 → novels/第二次侍奉/
-
-       先念「绝对不可违反的事实」，这几条最该你亲自过目：
-       - 重生只有一次，死了就是死了，不得再来一世
-       - 陆九不能主动透露前世的事，一说出口契约就反噬
-       - 小姐沈砚秋在第 40 章前不能知道他重生过
-
-       再是人物和世界规则：
-       - 陆九，28 岁，左手小指缺一截（前世递毒酒时被小姐咬的）
-       - 沈砚秋表面柔顺实则知道一切，这是和你原设定最大的差别
-       有要改的吗？
-```
-
-这一步别跳过，尤其是那几条红线。它自己挑的红线未必是这本书真正的红线——你的主角要是有什么生理限制（不能说话、看不见、缺一条腿）或者某个能力必须留到后期，现在补进去，下一章就生效。人物性格和世界规则在这里写错，后面每一章都会把错误当事实继承下去。
-
-### 第 4 步 — 先写 3 章给你看
+This stage **always produces multiple versions**:
 
 ```
-你：先写三章看看
-Claude：（跑 write_novel.py write --count 3 --genre 西方奇幻）
-       三章写完了。第 1 章 3100 字、第 2 章 2980 字、第 3 章 3050 字。
-       第 3 章结尾落在小姐发现他知道毒酒的事。
-       你读一下：主角说话的腔调对不对？节奏太赶还是太慢？
+Agent: Three premises along the "reborn as the butler" line. Their core
+       advantage and central conflict are completely different:
+
+Option 1 — "Shadow Servant"
+  Hook: he can hear how she dies three days from now, but each use ages him a year
+  Advantage: foresight paid for in lifespan   Conflict: saving her versus destroying himself
+
+Option 2 — "The Second Service"
+  Hook: last life he handed her the poisoned cup himself; this time he has to stop
+        himself before he does it again
+  Advantage: memory of the previous life   Conflict: fighting his own past self
+
+Option 3 — "Article Seven"
+  Hook: the butler's code says a servant may not die before his master — that is
+        not a rule, it is a binding
+  Advantage: an undeath bound by curse   Conflict: the backlash and the fear of not dying
+
+Which one? You can also say "the advantage from #2 with the opening from #1",
+or ask for three more.
 ```
 
-不满意的话，改动的代价从低到高是：改弧线计划（近 30 章剧情）→ 改故事圣经（人物和世界规则）→ 给这个题材补写作规则。告诉 Claude 你哪里不满意就行，它知道该动哪一层。
+You can pick one, mix them, or say "none of these, give me three more" (it automatically avoids the directions already offered).
 
-**每次换了模型、换了规则、刚过弧线交界，都先写一章读一遍再放量。** `--count 20` 错了是 20 章一起错。
+**Why summaries first rather than full drafts**: writing three complete "outline plus chapter one" packages means you throw two away. Summaries are cheap; expansion is what costs.
 
-### 第 4.5 步 — 让它自己诊断，你决定改不改
+### Step 3 — Expand, set up, check the foundation
 
-```
-你：第三章你自己看看有没有问题
-Claude：（跑 review_chapter.py diagnose）
-       机械检查：字数 2900 在区间内、没有技巧标签、标题格式对。
-       按题材自检表打分：钩子 8 · 悬念 8 · 画面感 8 · 对话自然度 5 · 章节差异度 6。
-       发现 3 个问题——
-
-       1. [硬约束] 主角不能说话，但本章他开口了
-          证据：「你是谁？」他哑声质问。
-          建议：改成心声或手势，或由他人代为转述
-       2. [质量] 节奏变化 6 分：连续高强度幻境堆叠，缺少缓冲段落
-       3. [质量] 章节差异度 6 分：与前两章同一地点、相似压迫氛围
-
-       要改哪几条？也可以都不改。
-你：改第 1 条
-Claude：（跑 revise --fix 1）改完了，2900 字 → 2972 字。
-       主角的台词都变成了心声和手势，情节事实没动。
-       原稿备份在 chapters/.bak/003.txt，本章摘要已同步更新。
-```
-
-两点设计上的讲究：**诊断和改稿是两条命令**，中间卡着你的决定——按"全部问题都修"去自动重写，往往把本来写得好的段落一起换掉；**改稿会同步重写该章摘要**，因为摘要是后面几百章的事实依据，正文改了摘要不改，错的事实会一路继承下去。
-
-不满意改稿结果就 `restore` 退回原稿。
-
-### 第 5 步 — 持续更新
+Once you pick, it writes the full outline (core premise, character dossier with appearance and growth arc, romance lines, three environment shifts, antagonist, first ten chapters) plus chapter one, sets up the project, and **reads the bible back to you**:
 
 ```
-你：再写十章
-你：现在写到哪了？
-你：第 44 章那段打斗太长了，重写
+Agent: Project created → novels/The Second Service/
+
+       First, the lines that must never be crossed — these are the ones to
+       check yourself:
+       - Rebirth happens once; dead is dead, no third life
+       - Lu Jiu cannot reveal the previous life aloud; speaking it triggers the backlash
+       - Shen Yanqiu must not learn he was reborn before chapter 40
+
+       Then characters and world rules:
+       - Lu Jiu, 28, missing the tip of his left little finger (she bit it off
+         last life when he handed her the cup)
+       - Shen Yanqiu appears pliant but knows everything — the biggest departure
+         from your original note
+       Anything to change?
 ```
 
-它会自己处理这些：每 10 章据摘要刷新故事圣经，每 30 章把上一弧压成往事提要并生成下一弧计划，每章写完登记新埋的伏笔、勾掉兑现的，章型按"战斗→人物→感情→揭秘→喘息→转折"轮转（避免连续十章都在打），每 5 章切一次配角视角，还会扫最近两章的开篇手法要求避开重复。
+Do not skip this, especially those first lines. The set it picks may not be your book's real red lines — if your protagonist has a physical limit (cannot speak, cannot see, missing a leg) or a power that must stay in the late arcs, add it now and it takes effect from the next chapter.
 
-伏笔那一层你可以插手：`bible.json` 的 `open_threads` 就是账本，想埋的自己加一条，不打算收的直接删。它只保证这些债不会从上下文里消失，收不收是你的事。
-
-两处值得知道的设计：
-
-- **慢节奏的章型带禁止项**。人物章明确不许出现战斗、追兵、逃亡，感情章不许用逃命推进感情，喘息章不许引入新追兵——而且声明章型**优先于**"每章都要有冲突"这类通用要求。不这么写的话，慢章会被推成动作戏（实测过：人物章和感情章都变成了负伤逃亡）。
-- **章节字数是区间，不是下限**：2600–3600 字。连载按章追更，忽长忽短会打乱阅读节奏；只给下限会飘（实测出现过 4917 字的一章）。
-
-**要重写某一章一定要让它连摘要一起退**——只删正文不删摘要，那段崩坏剧情会被当成已发生的事实继承下去。你只要说"第 44 章重写"，它知道要退三样东西。
-
-### 第 6 步 — 每 30 章的岔路口，还可以再挑
-
-弧线交界处（第 31、61、91 章…）是剧情方向的岔路口，这里同样可以要多个版本：
+### Step 4 — Three chapters, then you read them
 
 ```
-你：下一弧先给我三个方向
-Claude：（跑 new-arc --variants 3）
-       三个方案在主要事件和转折上明显不同：
-       v1 走回家族复仇线，第 45 章揭穿家主；
-       v2 把小姐推上权位，主角退到幕后；
-       v3 引入前世的第三方，让"谁递的毒酒"变成罗生门。
-       （当前计划和进度都没动，你挑定我再落地）
+You: write three and let me look
+Agent: (runs write_novel.py write --count 3 --genre western-fantasy)
+       Three chapters done: 3,100 / 2,980 / 3,050 characters.
+       Chapter 3 ends on her realising he knows about the cup.
+       Read them: is the protagonist's register right? Is the pace rushed or slack?
 ```
 
-### 第 7 步（可选）— 发到平台
+If something is off, the cost of fixing rises in this order: the arc plan (the next 30 chapters of plot) → the story bible (characters and world rules) → the genre's writing rules. Tell your agent what bothers you and it knows which layer to touch.
 
-只有中国大陆平台支持，而且需要你自己有账号、作品已经在后台建好并过审。番茄小说跑得最熟，七猫能跑。
+**Whenever you change model, change rules, cross an arc boundary or refresh the bible, write one chapter and read it before scaling up.** `--count 20` going wrong is twenty chapters going wrong together.
+
+### Step 4.5 — It diagnoses itself; you decide whether to revise
 
 ```
-你：把写好的发到番茄，每天两章
+You: take a look at chapter three yourself
+Agent: (runs review_chapter.py diagnose)
+       Mechanical: 2,900 characters, in band; no craft labels; title format correct.
+       Scored against the genre's criteria: hook 8 · suspense 8 · imagery 8 ·
+       dialogue 5 · chapter differentiation 6.
+       Three findings —
+
+       1. [Hard constraint] The protagonist cannot speak, but he does here
+          Quote: "Who are you?" he rasped.
+          Fix: make it inner voice or gesture, or have someone else relay it
+       2. [Quality] Pacing 6: high-intensity visions stacked with no buffer
+       3. [Quality] Differentiation 6: same location and oppressive register as
+          the previous two chapters
+
+       Which do you want fixed? None is a valid answer.
+You: fix the first one
+Agent: (runs revise --fix 1) Done, 2,900 → 2,972 characters.
+       His lines are now inner voice and gesture; the events of the chapter are unchanged.
+       Original backed up to chapters/.bak/003.txt; this chapter's summary rewritten in step.
 ```
 
-第一次会开真实浏览器窗口让你扫码登录，然后盯着发一章确认无误，再上日更。17K 和塔读没有打包进来。
+Two deliberate design points: **diagnosis and revision are separate commands** with your decision in between — auto-revising every finding tends to replace the passages that were working; and **revision rewrites that chapter's summary in step**, because the summary is the factual basis for the hundreds of chapters after it, and a stale summary propagates the error forever.
 
-## 工作目录里会生成什么
+If you do not like the revision, `restore` puts the original back.
+
+### Step 5 — Keep going
+
+```
+You: write ten more
+You: where are we?
+You: that fight in chapter 44 runs too long, redo it
+```
+
+It handles these on its own: refreshing the bible from summaries every 10 chapters, compressing the finished arc into a digest and generating the next arc plan every 30, logging what each chapter plants and ticking off what it pays off, rotating chapter type through combat → character → romance → revelation → breather → reversal (so ten consecutive fights never happen), switching to a secondary viewpoint every 5 chapters, and checking the opening technique of the last two chapters to avoid repeating it.
+
+Two design points worth knowing:
+
+- **The slow chapter types carry prohibitions.** A character chapter explicitly may not contain combat, pursuit or flight; a romance chapter may not advance feeling through escape; a breather chapter may not introduce new pursuers — and the chapter type is declared to **outrank** generic instructions like "every chapter needs conflict". Without that, slow chapters get pushed into action (measured: both the character and romance chapters came back as wounded-and-fleeing).
+- **Chapter length is a band, not a floor**: 2,600–3,600 characters. Readers follow a serial chapter by chapter and wild swings break the rhythm; a floor alone drifts (measured: one chapter came in at 4,917).
+
+You can intervene in the ledger: `open_threads` in `bible.json` is the book of debts — add one you want planted, delete one you do not intend to pay off. It only guarantees those debts stay in context; whether to settle them is your call.
+
+**To redo a chapter, the summary has to go back with it** — deleting the prose but leaving the summary means that broken plot gets inherited as established fact. Just say "redo chapter 44" and it knows there are three things to roll back.
+
+### Step 6 — At every 30-chapter fork, you can choose again
+
+Arc boundaries (chapters 31, 61, 91 …) are forks in the plot, and you can ask for multiple versions there too:
+
+```
+You: give me three directions for the next arc
+Agent: (runs new-arc --variants 3)
+       Three plans that differ materially in events and turns:
+       v1 returns to the family-revenge line, exposing the patriarch at chapter 45;
+       v2 puts her in power and moves the protagonist behind the scenes;
+       v3 introduces a third party from the previous life, turning "who handed over
+          the cup" into a Rashomon.
+       (Nothing touched yet — current plan and progress unchanged. Pick one and I'll apply it.)
+```
+
+### Step 7 (optional) — Publish
+
+Mainland Chinese platforms only, and you need your own account with the work already approved in the platform's backend. Fanqie is the best-tested; Qimao works.
+
+```
+You: publish what's written to Fanqie, two chapters a day
+```
+
+The first run opens a real browser window for you to log in by QR code; then watch one chapter go up to confirm before enabling the daily job. 17K and Tadu are not bundled.
+
+## What gets created in your working directory
 
 ```
 ~/my-novel/
-├── premises/<题材>_<时间>/     立项方案（pitches.md 给你看、variant_N_premise.txt 给脚本用）
-├── novels/<书名>/
-│   ├── bible.json             故事圣经 ← 值得你亲自读的文件
-│   ├── arc_plan.txt           当前 30 章计划 ← 想改剧情方向就改这里
-│   ├── summaries.jsonl        每章摘要，永久累积（只有最近 10 章进上下文）
-│   ├── arc_digests.jsonl      每弧一段往事提要，很久以前的事靠它
-│   ├── state.json             写到第几章
+├── premises/<genre>_<timestamp>/   premise options (pitches.md for you, variant_N_premise.txt for the scripts)
+├── novels/<title>/
+│   ├── bible.json             story bible ← the file worth reading yourself
+│   ├── arc_plan.txt           current 30-chapter plan ← edit this to change plot direction
+│   ├── summaries.jsonl        per-chapter summaries (only the last 10 enter the context)
+│   ├── arc_digests.jsonl      one paragraph per arc — how the distant past is remembered
+│   ├── state.json             which chapter you are on
 │   ├── chapters/
-│   │   ├── 001.txt …          正文，首行是章节标题
-│   │   └── .bak/              改稿前的原稿备份，restore 用它退回
-│   ├── arc_candidates/        弧线计划的候选版本（挑定前不影响任何东西）
-│   └── reviews/               诊断报告（ch003_review.md 给你读、.json 给改稿用）
-├── cookies/ state/            发章用的会话与进度（只有用发布功能才有）
-├── novel.config.json          你的 API 设置（权限 600，别提交到 git）
+│   │   ├── 001.txt …          prose; first line is the chapter title
+│   │   └── .bak/              pre-revision originals, used by restore
+│   ├── arc_candidates/        candidate arc plans (nothing is affected until you pick)
+│   └── reviews/               diagnosis reports (ch003_review.md for you, .json for revision)
+├── cookies/ state/            publishing sessions and progress (only if you publish)
+├── novel.config.json          your API settings (mode 600, do not commit)
 ```
 
-章节文件的格式是固定的：**第一行是章节标题，空行之后是正文**。发布端就认这个格式。
+Chapter files have a fixed shape: **first line is the title, prose starts after a blank line**. The publishing end relies on it.
 
-## 花多少钱
+## What it costs
 
-默认模型是 `o3`，续写一章 2600–3600 字、带完整记忆上下文（输入约 2 万 token，不随章数增长）。想估算就让 Claude 跑一下状态：
+The built-in default model is `o3`, at 2,600–3,600 characters a chapter with the full memory context (about 20k input tokens, and it does not grow with chapter count). To estimate, have your agent check status:
 
 ```
-你：写 100 章大概多少钱？
-Claude：（跑 status，看预估输入 token）单章输入约 5,600 token + 输出约 4,000，
-       按 100 章粗算给你一个数。
+You: roughly what does 100 chapters cost?
+Agent: (runs status and reads the measured input tokens) About 5,600 input plus
+       4,000 output per chapter; here is the arithmetic for 100.
 ```
 
-摘要会随章数线性增长（每章约 75 token），所以第 200 章比第 10 章略贵，但不会失控。想便宜就换服务商：`setup_api.py set --provider deepseek --key ...`，所有脚本立刻跟着走，不用在每条命令上手动带模型名。
+Summaries grow linearly with chapter count (about 75 tokens each), so chapter 200 is marginally dearer than chapter 10, but it does not run away. For cheaper runs, switch provider: `setup_api.py set --provider deepseek --key ...` and every script follows, with no need to pass a model name on each command.
 
-## 几件它不会替你做的事
+## Things it will not do for you
 
-- **不替你决定剧情大方向**。人物命运、结局走向是作者的东西；它负责在你定的框架内把每章写好，以及在框架开始自我矛盾时提醒你。
-- **不自动改你的稿**。诊断随便跑，但改哪几条要你点名；改稿前会备份原稿，不满意可以 `restore` 退回。
-- **不在平台建书**。作品要你自己在后台建好、过审，它只负责发章。
-- **不替你抓取别人的作品**。想用自己选的标杆作品反推写作规则是进阶玩法（见 `references/corpus.md`），素材来源和版权由你负责。
+- **It will not decide the direction of your story.** Character fates and endings belong to the author; its job is to write each chapter well inside the frame you set, and to tell you when the frame starts contradicting itself.
+- **It will not revise your draft unsupervised.** Diagnose freely, but which findings get acted on is your call; the original is backed up and `restore` puts it back.
+- **It will not create the work on a platform.** You register and clear the title yourself; it only posts chapters.
+- **It will not scrape anyone's work for you.** Deriving rules from your own chosen exemplars is an advanced path (see `references/corpus.md`); sourcing and rights are your responsibility.
 
-## 想深入的话
+## Going deeper
 
-Claude 用到时会自己去读这些，你也可以直接翻：
+Your agent reads these as needed; you can also just open them:
 
-| 文件 | 内容 |
+| File | Contents |
 |---|---|
-| `references/from-scratch.md` | 从零到持续更新的完整步骤 |
-| `references/genres.md` | 37 个题材模版怎么用、怎么加你自己的规则 |
-| `references/method.md` | 记忆六层的设计原理、伏笔台账与弧线提要、写坏了怎么回退、症状→改哪一层 |
-| `references/reviewing.md` | 章节诊断与改稿：检查哪些项、怎么选要改的问题、改稿的边界 |
-| `references/setup.md` | 环境、换模型、估成本、常见启动问题 |
-| `references/corpus.md` | 进阶：自建参考语料库，把某个题材的规则迭代得更准 |
-| `references/publishing.md` | 发章到平台的配置与各站坑点 |
-| `references/testing.md` | 怎么测这个 skill：回归自检、触发测试、行为清单、质量 A/B |
-| `assets/templates/INDEX.md` | 37 个题材一览与成熟度分级 |
+| `references/from-scratch.md` | Full walkthrough from nothing to a running serial |
+| `references/genres.md` | How the 37 genre templates work, the shared craft layer, and how to add your own rules |
+| `references/method.md` | The design of the memory layers, the foreshadowing ledger and arc digests, how to roll back a bad chapter, symptom → which layer to fix |
+| `references/reviewing.md` | Chapter diagnosis and revision: what is checked, how to pick findings, where revision stops |
+| `references/setup.md` | Environment, switching models, cost estimation, common startup problems |
+| `references/corpus.md` | Advanced: build your own reference corpus and iterate a genre's rules |
+| `references/publishing.md` | Platform configuration and the per-site pitfalls |
+| `references/testing.md` | How to test this skill: regression self-check, trigger testing, behavioural checklist, quality A/B |
+| `assets/templates/INDEX.md` | All 37 genres with maturity grades |
 
-给某个题材加你自己的规则（不想要的套路、平台红线、你总结的爽点节奏），写进 `assets/prompts/<男频|女频>/<题材>.author.txt` —— 这个文件不会被重建覆盖。
+To add your own rules to a genre (tropes you do not want, platform red lines, a pacing pattern you have worked out), write them into `assets/prompts/<male|female>/<genre>.author.txt` — that file is never overwritten by a rebuild.

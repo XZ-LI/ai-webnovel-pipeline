@@ -1,64 +1,70 @@
 # ai-webnovel-pipeline
 
-**用 AI 写一本中文长篇网络小说，并一直更新下去。**
+***English** · [简体中文](./INTRO.zh-CN.md)*
 
-装进 Claude Code 就是一个 skill；换成 Cursor、Codex CLI、Cline、Copilot、Windsurf、Aider 也一样用；什么 agent 都不用、直接跑命令行也成立——**流水线本体是 11 个 Python 脚本和 37 份题材模版，零 agent 依赖**。
+**Write a full-length Chinese webnovel with AI, and keep updating it.**
 
-写一章好文字不难，难的是**写到第 200 章还记得第 3 章埋的伏笔**。一本 60 万字的小说装不进任何模型的上下文窗口，所以直接让 AI "继续写下一章"，写到第二十章人物性格就开始漂、设定开始自相矛盾、埋过的伏笔再也不会被提起。
+It installs as a Claude Code skill; it works the same in Cursor, Codex CLI, Cline, Copilot, Windsurf and Aider; and it works with no agent at all, straight from the command line — **the pipeline itself is eleven Python scripts and 37 genre templates, with zero agent dependency**.
 
-这个 skill 要解决的就是这件事。
+## The problem it solves
 
-## 它是怎么做到的
+Writing one good chapter is easy. The hard part is that **chapter 200 still remembers what chapter 3 planted**. Six hundred thousand characters do not fit in any model's context window, so if you just keep telling an AI to "write the next chapter", by chapter twenty the protagonist's voice has drifted, the world rules contradict each other, and nothing you planted is ever paid off.
 
-一套分层记忆，每写一章只喂其中几样进去：
+That is the problem this pipeline exists for.
 
-| 层 | 管什么 | 更新频率 |
+## How it works
+
+A layered memory. Each chapter is written from a few of these, not from the whole book:
+
+| Layer | What it holds | Refresh rate |
 |---|---|---|
-| 硬约束 | "违反即整章作废"的红线（主角是哑巴、死人不能复活、某个能力属于后期） | 人工定，很少变 |
-| 故事圣经 | 世界规则、人物档案、总走向 | 每 10 章自动刷新 |
-| 伏笔台账 | 埋了还没兑现的东西，以及埋在第几章 | 每章自动登记 |
-| 弧线提要 | 每弧一段往事提要，很久以前的事靠它 | 一弧写满自动压缩 |
-| 弧线计划 | 当前 30 章要兑现的事 | 一弧写满自动换 |
-| 摘要 + 近期原文 | 最近 10 章摘要 + 最近 2 章全文 | 每章追加 |
+| Hard constraints | Lines that void a chapter if broken (the protagonist is mute; the dead stay dead; this power belongs to the late arcs) | Set by the author, rarely changes |
+| Story bible | World rules, character dossiers, overall arc | Auto-refreshed every 10 chapters |
+| Foreshadowing ledger | What has been planted and not yet paid off, and in which chapter | Logged automatically each chapter |
+| Arc digests | One paragraph per 30-chapter arc — how the distant past is remembered | Compressed when an arc completes |
+| Arc plan | What the current 30 chapters must deliver | Replaced when an arc completes |
+| Summaries + recent prose | Last 10 chapter summaries + last 2 full chapters | Appended each chapter |
 
-实测结果：**输入量在第 10 章之后就不再增长**（约 2 万 token，tiktoken 实测），写第 1000 章和第 50 章一样大、一样贵。章数没有算术上限。
+Measured with tiktoken: **input stops growing after chapter 10** — about 20k tokens whether you are writing chapter 50 or chapter 1,000. There is no arithmetic ceiling on length; the limits are your budget and your patience.
 
-## 规则不是手写的提示词，是从语料里反推出来的
+## The genre rules are reverse-engineered from a corpus, not hand-written
 
-这是这个项目和"写一份厉害的提示词"之间的根本区别。
+This is the substantive difference between this project and "a really good prompt".
 
-**底座是 1,110 部作品的语料库**（570 部男频 + 540 部女频，按平台评分分层）。在它上面跑了三件事：
+The foundation is a **1,110-novel corpus** (570 male-channel, 540 female-channel, stratified by platform rating). Three things were run on top of it:
 
-1. **逐题材反推评分维度**。37 个题材各取同品类高分作品，让模型反推"这个品类好在哪里"，产出 **370 项带权重的评分维度**，每项都附 9–10 分与 5 分以下的判分标准。这不是凭感觉列的十条军规，是从真实高分作品里拆出来的。
-2. **写作细则靠自我迭代攒出来**。循环是：用当前规则生成大纲加 3 章 → 评审模型按那张反推出来的评分表逐项打分 → 编辑模型据低分项改写规则 → 再来一轮。7 个题材跑到 10–15 轮，按评审分挑出最优那轮的规则。
-3. **提取与题材无关的通用手艺**。把其中一个题材 10 轮攒出的规则逐条审计，发现 **81% 与题材无关**（段落怎么切、句长怎么混、对话怎么断、信息怎么释放），于是提成一层 31 条的共享手艺，37 个题材的规则密度因此拉平。
+1. **Per-genre criteria, reverse-engineered.** For each of 37 genres, the top-rated works in that category were used to derive what the category is actually good at — producing **370 weighted criteria**, each with explicit anchors for what scores 9–10 and what scores below 5. Not ten commandments someone sat down and wrote; dimensions pulled out of works readers actually rated highly.
+2. **Writing rules grown by self-iteration.** The loop: generate an outline plus three chapters under the current rules → a reviewer model scores them against those derived criteria, dimension by dimension → an editor model rewrites the rules from the low-scoring dimensions → repeat. Seven genres ran 10–15 rounds; the best round was selected by review score.
+3. **Genre-independent craft extracted.** Auditing one genre's ten rounds of accumulated rules line by line showed **81% of them had nothing to do with the genre** — how to break paragraphs, how to mix sentence lengths, how to interrupt dialogue, how to meter out information. Those 31 rules were promoted to a shared layer, levelling rule density across all 37 genres.
 
-过程中量到一个有用的因果：**种子提示词里塞了可模仿的作品节选时，模型每轮只攒 85 字规则；把节选撤掉、逼它把观察写成明文规则，每轮攒 744 字——差 8.7 倍。** 规则才是能随项目分发的东西（节选是别人的作品），所以这个开关做成了 `--no-excerpts`，谁都能照着把任一题材补厚。
+One useful causal finding came out of that process: **when the seed prompt carries imitable excerpts from real works, the loop accumulates 85 characters of articulated rules per round; strip the excerpts out and force it to state what it observed, and it accumulates 744 — a factor of 8.7.** Rules are the part that can ship with a project (excerpts are someone else's work), so that became a `--no-excerpts` switch anyone can use to thicken any genre.
 
-**所以使用者不需要自己准备任何语料**——那 1,110 部的分析结果已经固化成 37 份模版打包在里面了。
+**So the user needs no corpus of their own** — the analysis of those 1,110 novels is already baked into the 37 templates in this repository.
 
-### 一个必须说清的限度
+### A limit worth stating plainly
 
-我另有一项研究（[llm-rubric-validity](https://github.com/XZ-LI/llm-rubric-validity)）正好测了这类评分表的效度：它们重测信度很高（ICC = .87），但只能解释读者行为方差的**不到 2%**，而且换个评委结论会翻转。所以这些规则的价值在于**让文本稳定地达到行业基本功**——段落形态一致、对话有身份差异、信息释放有节制、章末留得住人；而不是"分数高所以好看"。
+A separate study of mine ([llm-rubric-validity](https://github.com/XZ-LI/llm-rubric-validity)) measured the validity of exactly this kind of rubric: test–retest reliability is high (ICC = .87), but they explain **under 2% of reader-behaviour variance**, and changing the judge reverses the conclusion. So the value of these rules is that they get prose **reliably up to the craft floor of the industry** — consistent paragraph shape, dialogue that differentiates by station, metered information release, chapter endings that hold the reader — not "it scores high, therefore it is good".
 
-本项目自己的 A/B 也印证了这一点：带模版与不带模版的评分差，在写手自评下是 +0.22，换独立评委只剩 +0.06——太小，不足以下结论，文档里就这么写的。真正站得住的差异是章与章之间的段落形态一致性（带模版三章平均段长 19.7–20.0 字，不带那组在 10.4–33.2 之间剧烈摆动）。
+This project's own A/B says the same. The score gap between with-templates and without was +0.22 under the model that also wrote the chapters, and +0.06 under an independent judge — too small to claim, and the docs say so. What did hold up was paragraph-shape consistency across chapters: with templates, mean paragraph length across three chapters was 19.7–20.0 characters; without, it swung between 10.4 and 33.2.
 
-## 还带了什么
+## What else is in the box
 
-**自动诊断与改稿**：写完一章可以让它自查——先跑不花钱的机械检查（字数越界、技巧标签漏进正文、段落过长、开篇手法与上章重复），再按题材自检表逐项打分并核对硬约束，每个问题都要给出正文原句作证据。改不改、改哪几条由作者定；改稿会备份原稿并同步重写该章摘要。
+**Multiple options at every outline stage.** Project premises and each 30-chapter arc plan are generated as several distinct options for the author to choose from — one option only lets them say yes or no; three side by side lets them say "the ability from #2 with the opening from #1", which is the information you actually need.
 
-**自动发章**（可选）：番茄小说、七猫小说，浏览器自动化，支持按北京时间日更。
+**Diagnosis and revision.** After a chapter is written it can audit itself: first a free mechanical pass (length out of band, craft labels leaking into prose, over-long paragraphs, opening technique repeating the previous chapter), then a scored pass against the genre's own criteria plus a check of every hard constraint — every finding must quote the offending line. Whether to revise, and which findings to act on, is the author's call. Revision backs up the original and rewrites that chapter's summary in step.
 
-## 技术取舍
+**Optional publishing.** Browser automation for two Chinese platforms (Fanqie, Qimao), with daily scheduling on Beijing time.
 
-- **agent 无关**：权威指南是一份 `AGENTS.md`（跨 agent 的通用约定），Claude Code 读的 `SKILL.md` 只是多了一段 frontmatter。`scripts/install_for_agent.py` 能为 Cursor / Cline / Copilot / Windsurf / Aider 生成各自格式的入口文件，全部指回同一份指南，内容不分叉。11 个脚本里零处 Claude/Anthropic 依赖，只用标准库加 `openai`。
-- **模型无关**：内置 OpenAI / DeepSeek / 通义千问 / Kimi / GLM / 本地 Ollama 六个预设，也接受任何 OpenAI 兼容的 `--base-url`。一条命令设好并当场测通。
-- **人在环**：大纲阶段永远给多个版本让作者挑；诊断和改稿是两条命令，中间卡着作者的决定。不自动替作者改稿，也不替作者决定剧情大方向。
-- **109 项回归自检**，不调 API、几秒跑完，覆盖提示词装配、正文清洗、伏笔台账、题材解析、配置优先级。改完跑一遍就知道有没有改坏。
-- **测试方法本身也写进了文档**：触发测试（skill 会不会在该用的时候被用上）、行为清单、质量 A/B 与盲评，以及每类测试能回答和不能回答什么问题。
+## Engineering choices
 
-## 一个诚实的边界
+- **Agent-agnostic.** The authoritative guide is a single `AGENTS.md` (the emerging cross-agent convention); the `SKILL.md` that Claude Code reads is the same content plus a frontmatter block. `scripts/install_for_agent.py` generates entry files in each tool's own format for Cursor / Cline / Copilot / Windsurf / Aider, all pointing back at that one guide, so the content never forks. Across eleven scripts there is not one Claude or Anthropic dependency — standard library plus `openai`.
+- **Model-agnostic.** Six built-in provider presets (OpenAI, DeepSeek, Qwen, Kimi, GLM, local Ollama) and any OpenAI-compatible `--base-url`. One command sets it and verifies the connection on the spot.
+- **Human in the loop.** Diagnosis and revision are two separate commands with the author's decision in between. It does not revise on its own, and it does not decide the direction of the story.
+- **124 regression checks**, no API calls, runs in seconds — prompt assembly, prose cleaning, the foreshadowing ledger, genre resolution, config precedence, and whether the two guides have drifted apart.
+- **The testing method is documented too**: trigger testing (does the skill even get picked up), a behavioural checklist, quality A/B and blind evaluation — including what each class of test can and cannot tell you.
 
-自检全绿、诊断 8 分、流程清单全过，仍然可能是一本没人看的小说。这套东西能保证的是**不出技术性事故**——设定不矛盾、哑巴不说话、字数不失控、伏笔不失忆；保证不了好看。好看那部分靠作者给的设定、挑的方案，和读完之后的反馈。
+## One honest boundary
 
-详细用法见 [README.md](README.md)。
+All 124 checks green, an 8-out-of-10 diagnosis and a clean behavioural checklist still permit a novel nobody wants to read. What this guarantees is the absence of technical accidents — no contradicted world rules, no mute protagonist suddenly speaking, no runaway chapter lengths, no forgotten setups. It does not guarantee the book is good. That part comes from the premise the author sets, the option they pick, and what they say after reading.
+
+For usage, see [README.md](README.md).
