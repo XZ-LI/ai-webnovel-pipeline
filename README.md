@@ -72,9 +72,10 @@ If you are **in mainland China**, order the choice by whether the whole chain is
 
 | Tool | The agent link | With DeepSeek configured |
 |---|---|---|
+| **Qoder** (Alibaba) / **Trae** (ByteDance) | Mainland products, directly reachable | Reachable; Qoder reads `AGENTS.md` natively, so it is the least work to set up |
 | **Cline / Roo Code** | Open-source VS Code extension, bring-your-own-key, no vendor server in the path | **Whole chain reachable** |
 | **Aider** | Open-source CLI, likewise BYOK | **Whole chain reachable** |
-| Tongyi Lingma / Trae / CodeBuddy | Mainland products, directly reachable | Reachable, but usually bound to their own models |
+| Tongyi Lingma / CodeBuddy / Comate | Mainland products, directly reachable | Reachable, but usually bound to their own models |
 | Claude Code / Cursor / Codex CLI / Copilot | Need an overseas connection | The agent link breaks first |
 
 **Cline and Roo Code are local extensions rather than cloud services** — they hand model calls to the key you configure, so with DeepSeek the entire chain stays inside the mainland. Generate an entry file:
@@ -86,6 +87,8 @@ python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --agent cli
 
 | Tool | Entry file |
 |---|---|
+| **Qoder** (Alibaba) | `.qoder/rules/novel-pipeline.md`; it also reads `AGENTS.md` natively |
+| **Trae** (ByteDance) | `.trae/rules/project_rules.md` |
 | Codex CLI and others reading the common convention | `AGENTS.md` |
 | Cline (Roo Code reads this too) | `.clinerules` |
 | Cursor | `.cursor/rules/novel-pipeline.mdc` |

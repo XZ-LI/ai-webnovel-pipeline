@@ -92,7 +92,10 @@ def test_structure():
             check(f"{doc} 有语言切换链接", other in f.read_text(encoding="utf-8")[:400],
                   "顶部 400 字内应有指向另一语言版本的链接")
     ag = load("install_for_agent")
-    check("入口生成器覆盖主流 agent", len(ag.AGENTS) >= 6, f"只有 {len(ag.AGENTS)} 家")
+    check("入口生成器覆盖主流 agent", len(ag.AGENTS) >= 8, f"只有 {len(ag.AGENTS)} 家")
+    check("入口生成器含大陆主流（Qoder / Trae）",
+          {"qoder", "trae"} <= set(ag.AGENTS),
+          "这个 skill 写的是中文长篇，大陆常用的工具不能缺")
     check("入口生成器含 Cursor 的 mdc 格式",
           any(v["fmt"] == "mdc" for v in ag.AGENTS.values()))
 

@@ -72,9 +72,10 @@ python3 ~/.claude/skills/novel-pipeline/scripts/selftest.py
 
 | 工具 | agent 这一环 | 配上 DeepSeek 之后 |
 |---|---|---|
+| **Qoder**（阿里）/ **Trae**（字节） | 大陆本地产品，直连 | 直连；Qoder 原生读 `AGENTS.md`，装起来最省事 |
 | **Cline / Roo Code** | 开源 VSCode 插件，自带 BYOK，不依赖厂商服务器 | **全链路直连** |
 | **Aider** | 开源命令行工具，同样 BYOK | **全链路直连** |
-| 通义灵码 / Trae / CodeBuddy | 大陆官方产品，直连 | 直连，但模型通常绑自家 |
+| 通义灵码 / CodeBuddy / 文心快码 | 大陆官方产品，直连 | 直连，但模型通常绑自家 |
 | Claude Code / Cursor / Codex CLI / Copilot | 需要海外网络 | agent 这一环先断 |
 
 **Cline 和 Roo Code 这类本身只是本地插件**，模型调用交给你自己配的 key，所以加上 DeepSeek 整条链都在境内。生成入口文件：
@@ -86,6 +87,8 @@ python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --agent cli
 
 | 工具 | 入口文件 |
 |---|---|
+| **Qoder**（阿里） | `.qoder/rules/novel-pipeline.md`；它也原生识别 `AGENTS.md` |
+| **Trae**（字节） | `.trae/rules/project_rules.md` |
 | Codex CLI 及一批读通用约定的工具 | `AGENTS.md` |
 | Cline（Roo Code 也读这个） | `.clinerules` |
 | Cursor | `.cursor/rules/novel-pipeline.mdc` |

@@ -23,7 +23,21 @@ from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 
+# 顺序大致按中国大陆的流行度排，因为这个 skill 写的是中文长篇网文。
+# 口径说明：IDC 2025 年度报告（2026-07 发布）按付费订阅额算，阿里 Qoder 47.6% 断层第一；
+# 另有 2025 Q1 的口径把字节 Trae 排在 41.2% 第一。两份数据统计的不是一回事，
+# 所以这里不写"第一"，只把两家都放前面。
 AGENTS = {
+    "qoder": {
+        "name": "Qoder（阿里）— 原生识别 AGENTS.md，不装这个文件也行",
+        "path": ".qoder/rules/novel-pipeline.md",
+        "fmt": "plain",
+    },
+    "trae": {
+        "name": "Trae（字节）",
+        "path": ".trae/rules/project_rules.md",
+        "fmt": "plain",
+    },
     "codex": {
         "name": "Codex CLI / 以及任何读 AGENTS.md 的工具",
         "path": "AGENTS.md",
@@ -66,8 +80,8 @@ BODY = """# 写长篇网文：请先读 {guide}
 - `gen_premise.py pitch` / `expand` —— 立项：先出几个方案让作者挑，再展开成开篇
 - `write_novel.py init` / `write` / `status` / `new-arc` —— 建项目、续写、看进度、换弧
 - `review_chapter.py diagnose` / `revise` / `restore` —— 章节诊断、按作者选定的问题改稿
-- `setup_api.py set` —— 配作者自己的 API（六家预设，也接受任何 OpenAI 兼容接口）
-- `selftest.py` —— 113 项回归自检，不调 API
+- `setup_api.py set` —— 配作者自己的 API（六家预设，默认 DeepSeek；也接受任何兼容接口）
+- `selftest.py` —— 回归自检，不调 API（跑一下就知道有几项）
 
 ## 四条不能违反的纪律
 
@@ -116,6 +130,9 @@ def main() -> int:
         for k, v in AGENTS.items():
             print(f"  {k:<10} {v['name']}")
             print(f"             → {v['path']}")
+        print("\n在中国大陆选哪个：Qoder 和 Trae 是本地产品、直连；Cline / Roo Code / Aider")
+        print("是 BYOK 的开源工具，配上 DeepSeek 后 agent 与模型两环都在境内。")
+        print("Claude Code / Cursor / Codex CLI / Copilot 需要海外网络。")
         print("\n这条流水线不依赖任何 agent，不用 agent 直接跑命令也行（见 README.md）。")
         print("用法：python3 install_for_agent.py --agent cursor --dest ~/my-novel")
         return 0
