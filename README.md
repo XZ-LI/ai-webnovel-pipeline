@@ -92,6 +92,10 @@ The analysis is baked into the templates in this repository, so **you need no re
 
 **A limit worth stating plainly**: this class of rubric has high test–retest reliability but weak correlation with real reader behaviour — a separate study of mine ([llm-rubric-validity](https://github.com/XZ-LI/llm-rubric-validity)) measured under 2% of variance explained, with the conclusion reversing when the judge changes. So the value of these rules is that they get prose **reliably up to the craft floor**, not "it scores high, therefore it is good". This project's own A/B agrees: the gap between with-templates and without was +0.22 under the model that also wrote the chapters and +0.06 under an independent judge — too small to claim. What held up was consistency of paragraph shape.
 
+## Read two chapters before deciding
+
+[`examples/`](examples/) holds chapters this pipeline actually produced — not cherry-picked excerpts — along with the story bible, the foreshadowing ledger, and a **controlled comparison where the only variable is whether the genre template was used**. Reading two chapters tells you more than any architecture diagram.
+
 ## Installing
 
 Clone the repository anywhere. The path below installs it as a [Claude Code](https://claude.com/claude-code) skill; for any other tool — or none — see [which AI coding tool to install into](#which-ai-coding-tool-to-install-into) below.

@@ -90,6 +90,24 @@ def test_structure():
                   (key in a) == (key in skill_body),
                   "两份指南内容分叉了，改完 SKILL.md 要重新生成 AGENTS.md")
         check("AGENTS.md 说明了非 Claude Code 怎么用", "如果你不是 Claude Code" in a)
+    # 产出样例：陌生人判断"值不值得装"靠的是读两章，不是读架构
+    ex = SKILL / "examples"
+    check("有 examples 目录", ex.is_dir())
+    if ex.is_dir():
+        chapters = list(ex.rglob("chapters/*.txt"))
+        control = list(ex.rglob("对照/*.txt"))
+        check("样例里有正文章节", len(chapters) >= 3, f"只有 {len(chapters)} 章")
+        check("样例里有对照组", len(control) >= 2,
+              "同一项目只换「带不带题材模版」的对照，比任何结论都可信")
+        bible = ex / "众神低语者" / "bible.json"
+        if bible.exists():
+            b = json.loads(bible.read_text(encoding="utf-8"))
+            check("样例的圣经带硬约束", len(b.get("hard_constraints") or []) >= 3)
+            check("样例的圣经带伏笔台账", "open_threads" in b)
+        exr = (ex / "README.md").read_text(encoding="utf-8") if (ex / "README.md").exists() else ""
+        check("样例 README 标明了局限", "7.2" in exr and "不足以说明" in exr,
+              "样例要诚实标注得分区间和已知问题，不能只展示好的一面")
+
     # 文档内部的 #锚点 链接必须指向真实存在的标题。改标题时最容易漏掉引用它的地方，
     # 而坏链接在 GitHub 上只是静默跳不动，没人会报错。
     def _slug(h: str) -> str:
@@ -350,6 +368,19 @@ def test_threads(tmp: Path):
           wn.update_threads(proj, 7, ["守墓骑士的动机未明"], []) == (0, 0))
     many = [f"碎屑伏笔{i}" for i in range(1, 6)]
     added2, _ = wn.update_threads(proj, 8, many, [])
+    # 圣经刷新时模型会改字段名，把硬约束整层静默吃掉——实测发生过
+    old_b = {"title": "T", "hard_constraints": ["主角不能说话"], "world": {"setting": "S"},
+             "characters": [{"name": "甲"}, {"name": "乙"}, {"name": "丙"}], "category": "西方奇幻"}
+    mangled = {"title": "T", "absolute_facts": ["随便改的"], "world_setting": {"setting": "S"},
+               "characters": [{"name": "甲"}]}
+    fixed, notes = wn.reconcile_bible(old_b, mangled)
+    check("圣经对账：字段改名能救回", fixed.get("world") == old_b["world"], str(notes))
+    check("圣经对账：硬约束不随刷新改动",
+          fixed.get("hard_constraints") == old_b["hard_constraints"],
+          "红线是作者定的，update_bible 只该更新剧情状态")
+    check("圣经对账：人物骤减会回滚", len(fixed.get("characters", [])) == 3)
+    check("圣经对账：丢失字段会回填", fixed.get("category") == "西方奇幻")
+
     check("台账：单章登记有上限",
           added2 == wn.MAX_NEW_THREADS_PER_CHAPTER,
           f"模型报 5 条，登记了 {added2} 条（上限 {wn.MAX_NEW_THREADS_PER_CHAPTER}）")

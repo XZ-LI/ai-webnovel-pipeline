@@ -927,7 +927,10 @@ def build_bible_update_prompt(
 
         根据最近章节中发生的事件，更新故事圣经中需要修改的内容。
 
-        以JSON格式输出完整的更新后故事圣经，结构与原始圣经相同。
+        以JSON格式输出完整的更新后故事圣经，**字段名必须和上面给你的那份一字不差**
+        （hard_constraints、world、characters、open_threads、overall_arc 等都照抄，
+        不要改成同义词，不要翻译成中文键名）。改了字段名，读取方就什么都拿不到。
+        `hard_constraints` 原样照抄，那是作者定的红线，不随剧情变。
         需要更新的字段包括（如有变化）：
         - 角色的 current_state、relationships、growth_arc.current_stage
         - romance_lines 中各恋人的 status（active/dormant/transitioned）
@@ -1404,6 +1407,69 @@ def refresh_arc(client: OpenAI, model: str, proj: Path, arc_number: int, arc_sta
     save_arc_plan(proj, arc_plan)
 
 
+# 模型重写整份圣经时会自作主张改字段名。实测过一次：hard_constraints 被改成
+# absolute_facts、world 被改成 world_setting，于是 format_bible 一个也读不到——
+# 硬约束**静默地**从此不再进提示词，而硬约束正是用来防这类事故的那一层。
+# 所以不能信任返回的结构，必须对账。
+BIBLE_ALIASES = {
+    "hard_constraints": ("absolute_facts", "inviolable_facts", "hard_rules",
+                         "absolute_rules", "constraints", "红线", "绝对事实"),
+    "world": ("world_setting", "setting", "worldbuilding", "world_building"),
+    "open_threads": ("threads", "foreshadowing", "open_foreshadowing", "伏笔"),
+    "overall_arc": ("arc", "story_arc", "overall_story_arc"),
+    "characters": ("character_profiles", "cast"),
+}
+
+
+def _count_chars(bible: dict) -> int:
+    c = bible.get("characters")
+    if isinstance(c, list):
+        return len(c)
+    if isinstance(c, dict):
+        return sum(len(v) if isinstance(v, (list, dict)) else 1 for v in c.values())
+    return 0
+
+
+def reconcile_bible(old: dict, new: dict) -> tuple:
+    """把模型返回的新圣经对回规范结构。返回 (结果, 这次做了什么的说明)。
+
+    三件事，按严重性排：
+    1. 字段名改回来（模型爱用同义词）
+    2. hard_constraints 一律沿用旧的——那是作者手写的红线，刷新剧情状态不该动它
+    3. 关键字段丢了就从旧的回填；人物数骤减也按丢失处理
+    """
+    notes = []
+    merged = dict(new)
+
+    for canon, aliases in BIBLE_ALIASES.items():
+        if canon in merged:
+            continue
+        for a in aliases:
+            if a in merged:
+                merged[canon] = merged.pop(a)
+                notes.append(f"字段 {a} → {canon}")
+                break
+
+    # 红线是人工定的，模型无权改写
+    if old.get("hard_constraints"):
+        if merged.get("hard_constraints") != old["hard_constraints"]:
+            notes.append(f"硬约束沿用原有 {len(old['hard_constraints'])} 条（不随剧情刷新）")
+        merged["hard_constraints"] = old["hard_constraints"]
+
+    for key in ("world", "characters", "overall_arc", "open_threads",
+                "title", "category", "theme"):
+        if old.get(key) and not merged.get(key):
+            merged[key] = old[key]
+            notes.append(f"{key} 丢失，已从原版回填")
+
+    old_n, new_n = _count_chars(old), _count_chars(merged)
+    if old_n and new_n < old_n:
+        merged["characters"] = old["characters"]
+        notes.append(f"人物从 {old_n} 个掉到 {new_n} 个，判定为丢失，已回滚人物档案")
+
+    return merged, notes
+
+
 def update_bible(client: OpenAI, model: str, proj: Path) -> None:
     bible    = load_json(proj / "bible.json")
     state    = load_state(proj)
@@ -1420,9 +1486,13 @@ def update_bible(client: OpenAI, model: str, proj: Path) -> None:
     updated_raw = re.sub(r"^```json\s*|^```\s*|\s*```$", "", updated_raw.strip(), flags=re.MULTILINE)
     try:
         updated = json.loads(updated_raw)
-        save_json(proj / "bible.json", updated)
     except json.JSONDecodeError:
         print("\n  [WARN] 圣经更新JSON解析失败，保留原版。")
+        return
+    updated, notes = reconcile_bible(bible, updated)
+    save_json(proj / "bible.json", updated)
+    for n in notes:
+        print(f"\n  [圣经对账] {n}", end="")
 
 
 # ── Status display ────────────────────────────────────────────────────────────
