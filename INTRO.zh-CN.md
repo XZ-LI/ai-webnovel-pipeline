@@ -4,7 +4,7 @@
 
 **用 AI 写一本中文长篇网络小说，并一直更新下去。**
 
-装进 Claude Code 就是一个 skill；换成 Cursor、Codex CLI、Cline、Copilot、Windsurf、Aider 也一样用；什么 agent 都不用、直接跑命令行也成立——**流水线本体是 11 个 Python 脚本和 37 份题材模版，零 agent 依赖**。
+Cline、Roo Code、Aider、Cursor、Codex CLI、Copilot、Claude Code 都能用，什么 agent 都不用、直接跑命令行也成立——**流水线本体是 11 个 Python 脚本和 37 份题材模版，零 agent 依赖**。在中国大陆，Cline 或 Roo Code 配 DeepSeek 整条链路直连，而 DeepSeek 正是内置默认。
 
 写一章好文字不难，难的是**写到第 200 章还记得第 3 章埋的伏笔**。一本 60 万字的小说装不进任何模型的上下文窗口，所以直接让 AI "继续写下一章"，写到第二十章人物性格就开始漂、设定开始自相矛盾、埋过的伏笔再也不会被提起。
 
@@ -56,7 +56,7 @@
 - **agent 无关**：权威指南是一份 `AGENTS.md`（跨 agent 的通用约定），Claude Code 读的 `SKILL.md` 只是多了一段 frontmatter。`scripts/install_for_agent.py` 能为 Cursor / Cline / Copilot / Windsurf / Aider 生成各自格式的入口文件，全部指回同一份指南，内容不分叉。11 个脚本里零处 Claude/Anthropic 依赖，只用标准库加 `openai`。
 - **模型无关**：内置 OpenAI / DeepSeek / 通义千问 / Kimi / GLM / 本地 Ollama 六个预设，也接受任何 OpenAI 兼容的 `--base-url`。一条命令设好并当场测通。
 - **人在环**：大纲阶段永远给多个版本让作者挑；诊断和改稿是两条命令，中间卡着作者的决定。不自动替作者改稿，也不替作者决定剧情大方向。
-- **109 项回归自检**，不调 API、几秒跑完，覆盖提示词装配、正文清洗、伏笔台账、题材解析、配置优先级。改完跑一遍就知道有没有改坏。
+- **132 项回归自检**，不调 API、几秒跑完，覆盖提示词装配、正文清洗、伏笔台账、题材解析、配置优先级。改完跑一遍就知道有没有改坏。
 - **测试方法本身也写进了文档**：触发测试（skill 会不会在该用的时候被用上）、行为清单、质量 A/B 与盲评，以及每类测试能回答和不能回答什么问题。
 
 ## 一个诚实的边界

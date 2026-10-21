@@ -6,7 +6,7 @@ Write a full-length Chinese webnovel with AI, and keep updating it.
 
 You need no corpus of your own, and you do not need the plot worked out in advance. Once it is installed, say "I want to write a novel" in your terminal and it will walk you through pinning down the premise, hand you several opening options to choose from, set up the project, and then write chapter after chapter.
 
-**Not tied to Claude Code**: it installs as a Claude Code skill, and Cursor / Codex CLI / Cline / Copilot / Windsurf / Aider all work too (see [below](#installing-into-other-ai-coding-tools)). It also works with no agent at all, straight from the command line — the pipeline is eleven Python scripts plus 37 genre templates, with zero agent dependency.
+**Not tied to any one tool**: Cline, Roo Code, Aider, Cursor, Codex CLI, Copilot and Claude Code all work (see [below](#installing-into-other-ai-coding-tools)). It also works with no agent at all, straight from the command line — the pipeline is eleven Python scripts plus 37 genre templates, with zero agent dependency.
 
 **The genre rules are reverse-engineered from a 1,110-novel corpus**, not hand-written prompts. See [where the rules come from](#where-the-rules-come-from).
 
@@ -44,7 +44,7 @@ The analysis is baked into the templates in this repository, so **you need no re
 
 ## Installing
 
-You need [Claude Code](https://claude.com/claude-code) for the skill form. Clone into the skills directory:
+Clone the repository anywhere. The path below installs it as a [Claude Code](https://claude.com/claude-code) skill; for any other tool — or none — see [which AI coding tool to install into](#which-ai-coding-tool-to-install-into) below.
 
 ```bash
 # Personal install: available in every project
@@ -62,32 +62,43 @@ To check the install is intact:
 python3 ~/.claude/skills/novel-pipeline/scripts/selftest.py
 ```
 
-124 checks, no API calls, runs in seconds.
+132 checks, no API calls, runs in seconds.
 
-### Installing into other AI coding tools
+### Which AI coding tool to install into
 
-The authoritative guide is `AGENTS.md` at the repository root (the cross-agent convention that Codex CLI and others read). The `SKILL.md` that Claude Code reads is the same content plus a frontmatter block. For other tools, generate an entry file in their own format:
+**Short answer**: the pipeline is command-line scripts; the agent only reads commands out for you, so it is **not tied to any one vendor**. The authoritative guide is `AGENTS.md` at the repository root, and every tool's entry file points back at it.
+
+If you are **in mainland China**, order the choice by whether the whole chain is reachable — the agent and the model are two separate links, and one broken link is enough:
+
+| Tool | The agent link | With DeepSeek configured |
+|---|---|---|
+| **Cline / Roo Code** | Open-source VS Code extension, bring-your-own-key, no vendor server in the path | **Whole chain reachable** |
+| **Aider** | Open-source CLI, likewise BYOK | **Whole chain reachable** |
+| Tongyi Lingma / Trae / CodeBuddy | Mainland products, directly reachable | Reachable, but usually bound to their own models |
+| Claude Code / Cursor / Codex CLI / Copilot | Need an overseas connection | The agent link breaks first |
+
+**Cline and Roo Code are local extensions rather than cloud services** — they hand model calls to the key you configure, so with DeepSeek the entire chain stays inside the mainland. Generate an entry file:
 
 ```bash
 python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --list
-python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --agent cursor --dest ~/my-novel
+python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --agent cline --dest ~/my-novel
 ```
 
 | Tool | Entry file |
 |---|---|
-| Claude Code | `SKILL.md` (placed under `~/.claude/skills/`) |
-| Codex CLI and others | `AGENTS.md` |
+| Codex CLI and others reading the common convention | `AGENTS.md` |
+| Cline (Roo Code reads this too) | `.clinerules` |
 | Cursor | `.cursor/rules/novel-pipeline.mdc` |
-| Cline | `.clinerules` |
 | GitHub Copilot | `.github/copilot-instructions.md` |
 | Windsurf | `.windsurfrules` |
 | Aider | `CONVENTIONS.md` |
+| Claude Code | `SKILL.md` (put the repo under `~/.claude/skills/`) |
 
-Each entry file is a thin pointer back to the same `AGENTS.md`, so the content never forks.
+Each entry file is a thin pointer back to the same `AGENTS.md`, so the content never forks. For a tool not listed, most can be pointed at `AGENTS.md` — follow that tool's own documentation.
 
 **No agent at all also works**: every step below is one command. What an agent adds is judging which step comes next, reading the output back to you, and stopping to ask at the forks.
 
-> Tested end to end only on Claude Code (the 124 self-checks, the 21-query trigger suite, the A/B and the blind evaluation all ran there). Entry files for the other tools follow each vendor's published convention and the scripts themselves are agent-agnostic, but I have not verified each one — issues welcome.
+> Tested end to end only on Claude Code (the 132 self-checks, the 21-query trigger suite, the A/B and the blind evaluation all ran there). Entry files for the other tools follow each vendor's published convention and the scripts themselves are agent-agnostic, but I have not verified each one, and these formats change — check the tool's current docs.
 
 ## Setup
 
@@ -337,7 +348,7 @@ Chapter files have a fixed shape: **first line is the title, prose starts after 
 
 ## What it costs
 
-The built-in default model is `o3`, at 2,600–3,600 characters a chapter with the full memory context (about 20k input tokens, and it does not grow with chapter count). To estimate, have your agent check status:
+The built-in default is `deepseek-chat` on DeepSeek's endpoint — chosen because this writes long-form Chinese and most of its users are in mainland China, where `api.openai.com` is unreachable; a default that cannot connect strands a new user on their first run. At 2,600–3,600 characters a chapter with the full memory context (about 20k input tokens, and it does not grow with chapter count). To estimate, have your agent check status:
 
 ```
 You: roughly what does 100 chapters cost?

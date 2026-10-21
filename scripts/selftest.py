@@ -355,6 +355,21 @@ def test_config(monkey_env):
     for pid, p in nc.PROVIDERS.items():
         check(f"服务商预设完整：{pid}",
               p.get("base_url", "").startswith("http") and bool(p.get("models")))
+    # 默认模型与默认接口必须成对：默认是 DeepSeek 的模型，就不能把它发到 OpenAI 的
+    # 接口上（model not found）；用户显式走 OpenAI，也不能把他导去 DeepSeek（401）。
+    for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "NOVEL_MODEL"):
+        monkey_env(k, None)
+    nc = load("novel_config")
+    check("默认对大陆可直连", nc.model().startswith("deepseek") and "deepseek" in nc.base_url(),
+          f"{nc.model()} / {nc.base_url()}")
+    monkey_env("OPENAI_API_KEY", "sk-test")
+    nc = load("novel_config")
+    check("只给 OpenAI key 时模型与接口都走 OpenAI",
+          not nc.model().startswith("deepseek") and nc.base_url() == "",
+          f"{nc.model()} / {nc.base_url() or 'SDK 默认'}")
+    monkey_env("OPENAI_API_KEY", None)
+    nc = load("novel_config")
+
     monkey_env("NOVEL_MODEL", "env-model")
     check("模型优先级：环境变量胜出", nc.model() == "env-model", nc.model())
     monkey_env("NOVEL_MODEL", None)

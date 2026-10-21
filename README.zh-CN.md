@@ -6,7 +6,7 @@
 
 你不需要准备任何语料，也不需要先想好剧情。装好之后在终端里说一句"我想写本小说"，它会带着你把设定定下来、给你几个开局方案挑、建好项目，然后一章一章往下写。
 
-**不限于 Claude Code**：装进 Claude Code 是一个 skill，Cursor / Codex CLI / Cline / Copilot / Windsurf / Aider 都能用（见[下面](#装进别的-ai-编码工具)），什么 agent 都不用、直接跑命令行也成立——流水线本体是 11 个 Python 脚本加 37 份题材模版，零 agent 依赖。
+**不绑定任何一家**：Cline、Roo Code、Aider、Cursor、Codex CLI、Copilot、Claude Code 都能用（在中国大陆推荐 Cline 或 Roo Code 配 DeepSeek，整条链路直连）（见[下面](#装进别的-ai-编码工具)），什么 agent 都不用、直接跑命令行也成立——流水线本体是 11 个 Python 脚本加 37 份题材模版，零 agent 依赖。
 
 **题材规则是从 1,110 部作品的语料库里反推出来的**，不是手写的提示词。细节见[规则从哪来](#规则从哪来)。
 
@@ -44,7 +44,7 @@
 
 ## 安装
 
-需要 [Claude Code](https://claude.com/claude-code)。把这个仓库 clone 到 skill 目录：
+clone 到哪里都行。下面这个路径是装成 [Claude Code](https://claude.com/claude-code) 的 skill；用别的工具、或者完全不用 agent，见下面的[装进哪个 AI 编码工具](#装进哪个-ai-编码工具)。
 
 ```bash
 # 个人安装：所有项目都能用
@@ -62,32 +62,43 @@ git clone https://github.com/XZ-LI/ai-webnovel-pipeline.git <你的项目>/.clau
 python3 ~/.claude/skills/novel-pipeline/scripts/selftest.py
 ```
 
-113 项检查，不调 API、几秒跑完。
+132 项检查，不调 API、几秒跑完。
 
-### 装进别的 AI 编码工具
+### 装进哪个 AI 编码工具
 
-权威指南是仓库根目录的 `AGENTS.md`（跨 agent 的通用约定，Codex CLI 等会主动读它）。Claude Code 读的 `SKILL.md` 内容相同，只多一段 frontmatter。其他工具用这个命令生成各自格式的入口文件：
+**先说结论**：这套东西的本体是命令行脚本，agent 只是替你念命令的人，所以**不绑定任何一家**。权威指南是仓库根目录的 `AGENTS.md`，各家工具的入口文件都指回它。
+
+如果你在**中国大陆**，推荐顺序按"整条链路能不能直连"来定——agent 和模型是两环，断一环就用不了：
+
+| 工具 | agent 这一环 | 配上 DeepSeek 之后 |
+|---|---|---|
+| **Cline / Roo Code** | 开源 VSCode 插件，自带 BYOK，不依赖厂商服务器 | **全链路直连** |
+| **Aider** | 开源命令行工具，同样 BYOK | **全链路直连** |
+| 通义灵码 / Trae / CodeBuddy | 大陆官方产品，直连 | 直连，但模型通常绑自家 |
+| Claude Code / Cursor / Codex CLI / Copilot | 需要海外网络 | agent 这一环先断 |
+
+**Cline 和 Roo Code 这类本身只是本地插件**，模型调用交给你自己配的 key，所以加上 DeepSeek 整条链都在境内。生成入口文件：
 
 ```bash
 python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --list
-python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --agent cursor --dest ~/my-novel
+python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --agent cline --dest ~/my-novel
 ```
 
 | 工具 | 入口文件 |
 |---|---|
-| Claude Code | `SKILL.md`（放进 `~/.claude/skills/`） |
-| Codex CLI 等 | `AGENTS.md` |
+| Codex CLI 及一批读通用约定的工具 | `AGENTS.md` |
+| Cline（Roo Code 也读这个） | `.clinerules` |
 | Cursor | `.cursor/rules/novel-pipeline.mdc` |
-| Cline | `.clinerules` |
 | GitHub Copilot | `.github/copilot-instructions.md` |
 | Windsurf | `.windsurfrules` |
 | Aider | `CONVENTIONS.md` |
+| Claude Code | `SKILL.md`（把仓库放进 `~/.claude/skills/`） |
 
-入口文件只是薄薄一层，指回同一份 `AGENTS.md`，内容不会分叉。
+入口文件只是薄薄一层，指回同一份 `AGENTS.md`，内容不会分叉。上面没有的工具，多数能被指到 `AGENTS.md`——按它自己的文档配一下就行。
 
-**完全不用 agent 也行**：下面每一步都是一条命令。agent 的作用是替你判断现在该跑哪一步、把产出念给你听、在该你做决定的地方停下来问。
+**完全不用 agent 也成立**：下面每一步都是一条命令。agent 的作用是替你判断现在该跑哪一步、把产出念给你听、在该你做决定的地方停下来问。
 
-> 实测只在 Claude Code 上做过（113 项自检、21 条触发测试、A/B 与盲评都在那里跑的）。其他工具的入口文件按各家公开的约定生成，脚本本身与 agent 无关——但我没有逐一实测，遇到问题欢迎提 issue。
+> 实测只在 Claude Code 上做过（132 项自检、21 条触发测试、A/B 与盲评都在那里跑的）。其他工具的入口文件按各家公开约定生成，脚本本身与 agent 无关，但我没有逐一实测。各家的规则文件格式也在变，以它当时的文档为准。
 
 ## 准备
 
@@ -325,7 +336,7 @@ Claude：（跑 new-arc --variants 3）
 
 ## 花多少钱
 
-默认模型是 `o3`，续写一章 2600–3600 字、带完整记忆上下文（输入约 2 万 token，不随章数增长）。想估算就让 Claude 跑一下状态：
+内置默认是 `deepseek-chat` 配 DeepSeek 接口——这套东西写的是中文长篇、主要使用者在中国大陆，而 `api.openai.com` 在那里连不上；默认值连不上，新用户第一次跑就卡死在一个看起来像网络故障的超时上。续写一章 2600–3600 字、带完整记忆上下文（输入约 2 万 token，不随章数增长）。想估算就让 Claude 跑一下状态：
 
 ```
 你：写 100 章大概多少钱？

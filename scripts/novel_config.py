@@ -6,7 +6,8 @@ novel_config.py — 一处设置，所有脚本生效：API key、服务商地�
   1. 命令行参数          --model ...
   2. 环境变量            OPENAI_API_KEY / OPENAI_BASE_URL / NOVEL_MODEL / NOVEL_REVIEW_MODEL
   3. 配置文件            ./novel.config.json  →  ~/.novel-pipeline/config.json
-  4. 内置默认            o3（OpenAI 官方接口）
+  4. 内置默认            deepseek-chat + DeepSeek 接口（大陆直连；只 export 了
+                        OPENAI_API_KEY 的人自动走 OpenAI 的 o3，模型与接口成对）
 
 这样三种用法都成立：临时试一下用环境变量，长期用配置文件，单次覆盖用命令行。
 配置文件用 `setup_api.py` 写，别手填（它会设成仅本人可读并先测通）。
@@ -16,7 +17,14 @@ import json
 import os
 from pathlib import Path
 
-BUILTIN_MODEL = "o3"
+# 内置默认挑的是 DeepSeek，不是 OpenAI：这个 skill 写的是中文长篇，主要使用者在
+# 中国大陆，而 api.openai.com 在那里连不上——默认值连不上，用户第一次跑就卡死在
+# 一个看起来像网络故障的超时上。DeepSeek 大陆直连、中文长篇性价比也最高。
+# 用别家就一条命令：setup_api.py set --provider openai --key sk-...
+BUILTIN_MODEL = "deepseek-chat"
+BUILTIN_BASE_URL = "https://api.deepseek.com/v1"
+# 只 export 了 OPENAI_API_KEY 的人走这个，保持 OpenAI 侧原有的行为
+OPENAI_FALLBACK_MODEL = "o3"
 CONFIG_NAME = "novel.config.json"
 HOME_CONFIG = Path.home() / ".novel-pipeline" / "config.json"
 
@@ -97,8 +105,28 @@ def api_key() -> str:
     return os.environ.get("OPENAI_API_KEY") or load().get("api_key") or ""
 
 
+def _wants_openai() -> bool:
+    """用户 export 了 OPENAI_API_KEY 却没指定接口——他要的就是 OpenAI 官方。
+
+    这种情况下不能把他导向 DeepSeek：拿 OpenAI 的 key 去连 DeepSeek 只会认证失败，
+    而报错是 401，看不出是被默认值改了接口。
+    """
+    return bool(os.environ.get("OPENAI_API_KEY")) and not (
+        os.environ.get("OPENAI_BASE_URL") or load().get("base_url"))
+
+
 def base_url() -> str:
-    return os.environ.get("OPENAI_BASE_URL") or load().get("base_url") or ""
+    """什么都没配时回落到内置默认的服务商，而不是 openai SDK 自己的 api.openai.com。
+
+    默认模型是 deepseek-chat，发到 OpenAI 的接口上只会得到 model not found，
+    所以**模型和接口必须成对回落**，不能一个跟一个不跟。
+    """
+    explicit = os.environ.get("OPENAI_BASE_URL") or load().get("base_url")
+    if explicit:
+        return explicit
+    if _wants_openai():
+        return ""          # 交给 SDK 用 api.openai.com
+    return BUILTIN_BASE_URL
 
 
 def model(role: str = "") -> str:
@@ -111,7 +139,10 @@ def model(role: str = "") -> str:
     cfg = load()
     if role and cfg.get(f"{role}_model"):
         return cfg[f"{role}_model"]
-    return cfg.get("model") or BUILTIN_MODEL
+    if cfg.get("model"):
+        return cfg["model"]
+    # 和 base_url() 成对：用户指明了要走 OpenAI，就别把 DeepSeek 的模型名发过去
+    return OPENAI_FALLBACK_MODEL if _wants_openai() else BUILTIN_MODEL
 
 
 def describe() -> str:
@@ -120,7 +151,7 @@ def describe() -> str:
     masked = f"{k[:6]}…{k[-4:]}" if len(k) > 12 else ("（已设置）" if k else "（未设置）")
     src = "环境变量" if os.environ.get("OPENAI_API_KEY") else (
         f"配置文件 {config_path()}" if load().get("api_key") else "无")
-    url = base_url() or "https://api.openai.com/v1（默认）"
+    url = base_url() or "https://api.openai.com/v1"
     return f"key {masked}（来自{src}）· 接口 {url} · 模型 {model()}"
 
 

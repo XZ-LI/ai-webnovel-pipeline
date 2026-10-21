@@ -58,7 +58,7 @@ ls novels/*/state.json 2>/dev/null && for n in novels/*/; do echo "$(basename "$
 
 ## 成本与模型
 
-内置默认模型是 `o3`，续写一章（2600–3600 字，输入约 2 万 token 且不随章数增长）单价不低。用户的 API 由他自己配：`setup_api.py set --provider deepseek --key sk-...`（支持 openai/deepseek/dashscope/moonshot/zhipu/ollama 预设，也能给自定义 `--base-url`），配完所有脚本的默认模型都跟着变。取值优先级是 命令行 > 环境变量 > 配置文件 > 内置默认，详见 `references/setup.md`。
+内置默认是 `deepseek-chat` 配 DeepSeek 接口（大陆直连；只 export 了 `OPENAI_API_KEY` 的人会自动走 OpenAI 的 `o3`，模型与接口成对回落，不会出现拿 A 家的 key 连 B 家接口）。续写一章 2600–3600 字，输入约 2 万 token 且不随章数增长。用户的 API 由他自己配：`setup_api.py set --provider deepseek --key sk-...`（支持 openai/deepseek/dashscope/moonshot/zhipu/ollama 预设，也能给自定义 `--base-url`），配完所有脚本的默认模型都跟着变。取值优先级是 命令行 > 环境变量 > 配置文件 > 内置默认，详见 `references/setup.md`。
 
 **没配 API 时不要替用户猜**：不要自己 export 一个 key，也不要假设他用 OpenAI。问他用哪家、有没有 key，然后跑 `setup_api.py set` 当场测通。配置文件里有明文 key——不要打印给用户看，也不要提交到 git。
 

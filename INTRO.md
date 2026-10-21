@@ -4,7 +4,7 @@
 
 **Write a full-length Chinese webnovel with AI, and keep updating it.**
 
-It installs as a Claude Code skill; it works the same in Cursor, Codex CLI, Cline, Copilot, Windsurf and Aider; and it works with no agent at all, straight from the command line — **the pipeline itself is eleven Python scripts and 37 genre templates, with zero agent dependency**.
+Cline, Roo Code, Aider, Cursor, Codex CLI, Copilot and Claude Code all work, and so does no agent at all, straight from the command line — **the pipeline itself is eleven Python scripts and 37 genre templates, with zero agent dependency**. In mainland China the whole chain stays reachable with Cline or Roo Code on DeepSeek, which is also the built-in default.
 
 ## The problem it solves
 
@@ -60,11 +60,11 @@ This project's own A/B says the same. The score gap between with-templates and w
 - **Agent-agnostic.** The authoritative guide is a single `AGENTS.md` (the emerging cross-agent convention); the `SKILL.md` that Claude Code reads is the same content plus a frontmatter block. `scripts/install_for_agent.py` generates entry files in each tool's own format for Cursor / Cline / Copilot / Windsurf / Aider, all pointing back at that one guide, so the content never forks. Across eleven scripts there is not one Claude or Anthropic dependency — standard library plus `openai`.
 - **Model-agnostic.** Six built-in provider presets (OpenAI, DeepSeek, Qwen, Kimi, GLM, local Ollama) and any OpenAI-compatible `--base-url`. One command sets it and verifies the connection on the spot.
 - **Human in the loop.** Diagnosis and revision are two separate commands with the author's decision in between. It does not revise on its own, and it does not decide the direction of the story.
-- **124 regression checks**, no API calls, runs in seconds — prompt assembly, prose cleaning, the foreshadowing ledger, genre resolution, config precedence, and whether the two guides have drifted apart.
+- **132 regression checks**, no API calls, runs in seconds — prompt assembly, prose cleaning, the foreshadowing ledger, genre resolution, config precedence, and whether the two guides have drifted apart.
 - **The testing method is documented too**: trigger testing (does the skill even get picked up), a behavioural checklist, quality A/B and blind evaluation — including what each class of test can and cannot tell you.
 
 ## One honest boundary
 
-All 124 checks green, an 8-out-of-10 diagnosis and a clean behavioural checklist still permit a novel nobody wants to read. What this guarantees is the absence of technical accidents — no contradicted world rules, no mute protagonist suddenly speaking, no runaway chapter lengths, no forgotten setups. It does not guarantee the book is good. That part comes from the premise the author sets, the option they pick, and what they say after reading.
+All 132 checks green, an 8-out-of-10 diagnosis and a clean behavioural checklist still permit a novel nobody wants to read. What this guarantees is the absence of technical accidents — no contradicted world rules, no mute protagonist suddenly speaking, no runaway chapter lengths, no forgotten setups. It does not guarantee the book is good. That part comes from the premise the author sets, the option they pick, and what they say after reading.
 
 For usage, see [README.md](README.md).
