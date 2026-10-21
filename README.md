@@ -122,6 +122,8 @@ python3 --version          # 3.9 or newer
 pip install openai
 ```
 
+> The package name is misleading: **`openai` here is just a generic HTTP client**. DeepSeek, Qwen, Kimi and GLM all speak the same OpenAI-compatible protocol and use this same package. Installing it does not contact OpenAI's servers and does not mean you will be using OpenAI — this project defaults to DeepSeek. (In mainland China, add `-i https://pypi.tuna.tsinghua.edu.cn/simple` if PyPI is slow.)
+
 **Make a dedicated working directory**, say `~/my-novel`, and always open your agent there. Everything is generated relative to the current directory.
 
 ### Configuring your own API

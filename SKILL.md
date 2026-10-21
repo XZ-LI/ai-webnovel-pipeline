@@ -71,7 +71,9 @@ python3 $SK/doctor.py
 
 | 卡在哪 | 谁来做 |
 |---|---|
-| 没装 `openai` | **你替他装**：`python3 $SK/doctor.py --fix`，或直接 `pip install openai` |
+| 没装 `openai` | **你替他装**：`python3 $SK/doctor.py --fix`，或直接 `pip install openai
+# 注意：这个包只是通用 HTTP 客户端，DeepSeek/通义/Kimi/智谱 都用它，
+# 装它不等于要用 OpenAI。大陆装得慢加 -i https://pypi.tuna.tsinghua.edu.cn/simple` |
 | 没建工作目录 | **你替他建**：`mkdir -p ~/my-novel`，之后都在那里跑 |
 | Python 太旧或没有 | 给下载链接，装完让他重开终端——这一步你代劳不了 |
 | 没有 API key | **只有注册和充值必须他本人做**，其余你全包 |

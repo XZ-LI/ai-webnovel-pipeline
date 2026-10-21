@@ -5,6 +5,8 @@
 ```bash
 python3 --version        # 3.9 或更新
 pip install openai
+# 注意：这个包只是通用 HTTP 客户端，DeepSeek/通义/Kimi/智谱 都用它，
+# 装它不等于要用 OpenAI。大陆装得慢加 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 没别的依赖了——脚本只用标准库 + `openai`。（发布到平台那条可选支线需要浏览器自动化，见 `publishing.md`。）

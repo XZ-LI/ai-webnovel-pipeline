@@ -364,6 +364,12 @@ def test_config(monkey_env):
     for pid, p in nc.PROVIDERS.items():
         check(f"服务商预设完整：{pid}",
               p.get("base_url", "").startswith("http") and bool(p.get("models")))
+    order = list(nc.PROVIDERS)
+    check("预设里大陆直连的排在 OpenAI 前面",
+          order.index("deepseek") < order.index("openai") and order[0] == "deepseek",
+          f"当前顺序 {order}；照着列表第一条做的人多半在大陆，不能让他第一步就撞墙")
+    check("OpenAI 预设注明了大陆连不上",
+          "连不上" in nc.PROVIDERS["openai"]["name"] or "连不上" in nc.PROVIDERS["openai"]["note"])
     # 默认模型与默认接口必须成对：默认是 DeepSeek 的模型，就不能把它发到 OpenAI 的
     # 接口上（model not found）；用户显式走 OpenAI，也不能把他导去 DeepSeek（401）。
     for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "NOVEL_MODEL"):

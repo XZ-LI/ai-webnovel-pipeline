@@ -55,20 +55,30 @@ def check_openai(fix: bool):
         pass
 
     cmd = [sys.executable, "-m", "pip", "install", "openai"]
+    MIRROR = "https://pypi.tuna.tsinghua.edu.cn/simple"
+    cmd_cn = cmd + ["-i", MIRROR]
+    WHY = ("名字容易误会：它只是个通用的 HTTP 客户端，DeepSeek、通义、Kimi、智谱"
+           "都用同一个包（它们都是 OpenAI 兼容接口）。装它不会连 OpenAI 的服务器，"
+           "也不代表你要用 OpenAI。")
     if not fix:
-        say(BAD, "缺 openai 包", "这是唯一必须额外安装的东西（写作本身要用它调接口）。",
-            f"跑这条命令装上：{' '.join(cmd)}\n"
-            f"       —— 或者直接跟你的 agent 说「帮我装 openai」，它可以替你跑。")
+        say(BAD, "缺 openai 包", WHY,
+            f"跑这条装上：{' '.join(cmd)}\n"
+            f"       在中国大陆慢或失败就走清华镜像：{' '.join(cmd_cn)}\n"
+            "       —— 或者直接跟你的 agent 说「帮我装 openai」，它可以替你跑。")
         return False
 
     print("  正在安装 openai ...", flush=True)
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    if r.returncode != 0:
+        # 默认源在大陆常常超时，自动换镜像再试一次，不要让人卡在这
+        print("  默认源没成功，换清华镜像重试 ...", flush=True)
+        r = subprocess.run(cmd_cn, capture_output=True, text=True, timeout=300)
     if r.returncode == 0:
-        say(OK, "openai 包已安装", "刚刚装好的")
+        say(OK, "openai 包已安装", "刚刚装好的（" + WHY.split("：", 1)[1][:28] + "…）")
         return True
     tail = (r.stderr or r.stdout).strip().splitlines()[-3:]
     say(BAD, "装 openai 失败", "\n       ".join(tail),
-        f"把上面的报错发给你的 agent，或手动跑：{' '.join(cmd)}")
+        f"把上面的报错发给你的 agent，或手动跑：{' '.join(cmd_cn)}")
     return False
 
 

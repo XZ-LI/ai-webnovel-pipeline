@@ -31,41 +31,43 @@ HOME_CONFIG = Path.home() / ".novel-pipeline" / "config.json"
 # OpenAI 兼容的常见服务商。模型名是写这份文件时各家常见的几个，
 # 以服务商自己的文档为准——名字错了接口会直接报 model not found，不会静默跑错。
 PROVIDERS = {
-    "openai": {
-        "name": "OpenAI 官方",
-        "base_url": "https://api.openai.com/v1",
-        "models": ["o3", "gpt-4o", "gpt-4o-mini"],
-        "note": "中文网文够用但偏贵。",
-    },
+    # 顺序即推荐顺序。大陆可直连的排前面，境外的放最后——这个 skill 写的是中文长篇，
+    # 照着列表第一条做的人多半在大陆，让他第一步就撞墙是最糟的默认。
     "deepseek": {
-        "name": "DeepSeek 深度求索",
+        "name": "DeepSeek 深度求索（默认，大陆直连）",
         "base_url": "https://api.deepseek.com/v1",
         "models": ["deepseek-chat", "deepseek-reasoner"],
-        "note": "写中文长篇性价比高，长篇连载的常见选择。",
+        "note": "写中文长篇性价比最高，长篇连载的常见选择。没想好就用它。",
     },
     "dashscope": {
-        "name": "阿里云百炼（通义千问，OpenAI 兼容模式）",
+        "name": "阿里云百炼（通义千问，大陆直连）",
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "models": ["qwen-plus", "qwen-max", "qwen-turbo"],
         "note": "中文语感好，qwen-max 更稳、qwen-plus 更便宜。",
     },
     "moonshot": {
-        "name": "月之暗面 Kimi",
+        "name": "月之暗面 Kimi（大陆直连）",
         "base_url": "https://api.moonshot.cn/v1",
         "models": ["moonshot-v1-32k", "moonshot-v1-128k"],
         "note": "长上下文友好。",
     },
     "zhipu": {
-        "name": "智谱 GLM",
+        "name": "智谱 GLM（大陆直连）",
         "base_url": "https://open.bigmodel.cn/api/paas/v4",
         "models": ["glm-4-plus", "glm-4"],
         "note": "",
     },
     "ollama": {
-        "name": "本地 Ollama",
+        "name": "本地 Ollama（不联网，不花钱）",
         "base_url": "http://localhost:11434/v1",
         "models": ["qwen2.5:14b", "qwen2.5:32b"],
         "note": "不花钱，但 3000 字一章对本地小模型是硬仗，质量要自己掂量。key 随便填。",
+    },
+    "openai": {
+        "name": "OpenAI 官方（中国大陆连不上，需自备网络条件）",
+        "base_url": "https://api.openai.com/v1",
+        "models": ["o3", "gpt-4o", "gpt-4o-mini"],
+        "note": "中文网文够用但偏贵，且大陆无法直接访问。",
     },
 }
 

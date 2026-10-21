@@ -120,7 +120,10 @@ python3 ~/.claude/skills/novel-pipeline/scripts/doctor.py
 ```bash
 python3 --version          # 3.9 或更新
 pip install openai
+# 大陆装得慢就走镜像：pip install openai -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
+
+> `openai` 这个包名容易误会：**它只是个通用的 HTTP 客户端**，DeepSeek、通义千问、Kimi、智谱用的都是同一个包（它们都提供 OpenAI 兼容接口）。装它不会连 OpenAI 的服务器，也不代表你要用 OpenAI——本项目默认用的就是 DeepSeek。
 
 **建一个专门的工作目录**，比如 `~/my-novel`，之后一直在那里开 Claude Code。所有文件都生成在当前目录下。
 
