@@ -4,11 +4,27 @@
 
 用 AI 写一本中文长篇网络小说，并一直更新下去。
 
-你不需要准备任何语料，也不需要先想好剧情。装好之后在终端里说一句"我想写本小说"，它会带着你把设定定下来、给你几个开局方案挑、建好项目，然后一章一章往下写。
+你不需要准备任何语料，也不需要先想好剧情——说一句"我想写本小说"就能开始，它会带你定设定、给几个开局方案挑、建好项目，然后一章一章往下写。
 
-**不绑定任何一家**：Cline、Roo Code、Aider、Cursor、Codex CLI、Copilot、Claude Code 都能用（在中国大陆推荐 Cline 或 Roo Code 配 DeepSeek，整条链路直连）（见[下面](#装进别的-ai-编码工具)），什么 agent 都不用、直接跑命令行也成立——流水线本体是 11 个 Python 脚本加 37 份题材模版，零 agent 依赖。
+题材规则从 **1,110 部作品的语料库**反推而来，不是手写的提示词。Claude Code / Cursor / Cline / Qoder / Trae 都能用，不用 agent 直接跑命令行也成立。
 
-**题材规则是从 1,110 部作品的语料库里反推出来的**，不是手写的提示词。细节见[规则从哪来](#规则从哪来)。
+## 先看你属于哪种
+
+**A. 已经在用 Claude Code / Cursor / Cline 这类工具，手上也有一个 API key**
+
+```bash
+git clone https://github.com/XZ-LI/ai-webnovel-pipeline.git ~/.claude/skills/novel-pipeline
+python3 ~/.claude/skills/novel-pipeline/scripts/doctor.py     # 看还缺什么
+```
+
+新开一个会话，说「我想写本小说」就开始。用别的工具（不是 Claude Code）见[装进哪个 AI 编码工具](#装进哪个-ai-编码工具)；配 key 见[配你自己的 API](#配你自己的-api)。
+往下读也行——[它到底解决什么问题](#它到底解决什么问题)讲的是这套记忆架构怎么让几百章不走形。
+
+**B. 不懂 Python、没配过 API key，或者在中国大陆用不了上面那些**
+
+→ 直接跳到[零基础：五分钟开始](#零基础五分钟开始)。全程不用你自己装，复制一段话让 AI 替你做。
+
+---
 
 ## 零基础：五分钟开始
 

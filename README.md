@@ -4,11 +4,27 @@
 
 Write a full-length Chinese webnovel with AI, and keep updating it.
 
-You need no corpus of your own, and you do not need the plot worked out in advance. Once it is installed, say "I want to write a novel" in your terminal and it will walk you through pinning down the premise, hand you several opening options to choose from, set up the project, and then write chapter after chapter.
+You need no corpus of your own and no plot worked out in advance — say "I want to write a novel" and it walks you through the premise, hands you several opening options, sets up the project, and writes chapter after chapter.
 
-**Not tied to any one tool**: Cline, Roo Code, Aider, Cursor, Codex CLI, Copilot and Claude Code all work (see [below](#installing-into-other-ai-coding-tools)). It also works with no agent at all, straight from the command line — the pipeline is eleven Python scripts plus 37 genre templates, with zero agent dependency.
+The genre rules are reverse-engineered from a **1,110-novel corpus**, not hand-written prompts. Claude Code, Cursor, Cline, Codex CLI and others all work, and so does no agent at all.
 
-**The genre rules are reverse-engineered from a 1,110-novel corpus**, not hand-written prompts. See [where the rules come from](#where-the-rules-come-from).
+## Which one are you
+
+**A. Already using Claude Code / Cursor / Cline, and you have an API key**
+
+```bash
+git clone https://github.com/XZ-LI/ai-webnovel-pipeline.git ~/.claude/skills/novel-pipeline
+python3 ~/.claude/skills/novel-pipeline/scripts/doctor.py     # see what is still missing
+```
+
+Open a new session and say "I want to write a novel". For other tools see [which AI coding tool to install into](#which-ai-coding-tool-to-install-into); for the key see [configuring your own API](#configuring-your-own-api).
+Or keep reading — [what problem this solves](#what-problem-this-solves) explains the memory architecture that keeps hundreds of chapters consistent.
+
+**B. You do not know Python, have never set up an API key, or cannot reach the tools above**
+
+→ Jump to [starting from zero](#starting-from-zero-in-five-minutes). You install nothing yourself; you paste one paragraph and the AI does it.
+
+---
 
 ## Starting from zero, in five minutes
 

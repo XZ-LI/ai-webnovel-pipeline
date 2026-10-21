@@ -90,6 +90,35 @@ def test_structure():
                   (key in a) == (key in skill_body),
                   "两份指南内容分叉了，改完 SKILL.md 要重新生成 AGENTS.md")
         check("AGENTS.md 说明了非 Claude Code 怎么用", "如果你不是 Claude Code" in a)
+    # 文档内部的 #锚点 链接必须指向真实存在的标题。改标题时最容易漏掉引用它的地方，
+    # 而坏链接在 GitHub 上只是静默跳不动，没人会报错。
+    def _slug(h: str) -> str:
+        s = h.strip().lower()
+        s = re.sub(r"[`*_\[\]()（）。，、：:,.!?！？·/]", "", s)
+        return s.replace(" ", "-")
+
+    for doc in ("README.md", "README.zh-CN.md", "INTRO.md", "INTRO.zh-CN.md"):
+        f = SKILL / doc
+        if not f.exists():
+            continue
+        ft = f.read_text(encoding="utf-8")
+        heads = {_slug(m.group(1)) for m in re.finditer(r"^#{2,4}\s+(.+)$", ft, re.M)}
+        broken = [m.group(1) for m in re.finditer(r"\]\(#([^)]+)\)", ft)
+                  if m.group(1) not in heads]
+        check(f"{doc} 内部锚点都有效", not broken, f"指不到的：{broken[:3]}")
+
+    # 读者分叉：两类人进门就该分开，别让对方的内容挡路
+    for doc, fork, zero in (("README.zh-CN.md", "## 先看你属于哪种", "## 零基础：五分钟开始"),
+                            ("README.md", "## Which one are you", "## Starting from zero")):
+        f = SKILL / doc
+        if not f.exists():
+            continue
+        ft = f.read_text(encoding="utf-8")
+        check(f"{doc} 开头有读者分叉", fork in ft,
+              "老手要一条 clone 命令，新手要一段复制给 AI 的话，两者不该互相挡路")
+        if fork in ft and zero in ft:
+            check(f"{doc} 分叉排在零基础教程之前", ft.find(fork) < ft.find(zero))
+
     # 零基础入口：必须在技术说明之前，且带着可直接复制给 agent 的那段话
     for doc, head, kw in (("README.zh-CN.md", "## 零基础：五分钟开始", "ai-webnovel-pipeline"),
                           ("README.md", "## Starting from zero", "ai-webnovel-pipeline")):
