@@ -32,10 +32,10 @@
 
 ```bash
 # 个人安装：所有项目都能用
-git clone https://github.com/<你的账号或本仓库>/novel-pipeline.git ~/.claude/skills/novel-pipeline
+git clone https://github.com/XZ-LI/ai-webnovel-pipeline.git ~/.claude/skills/novel-pipeline
 
 # 或者只在某个项目里用
-git clone https://github.com/<同上>/novel-pipeline.git <你的项目>/.claude/skills/novel-pipeline
+git clone https://github.com/XZ-LI/ai-webnovel-pipeline.git <你的项目>/.claude/skills/novel-pipeline
 ```
 
 然后新开一个 Claude Code 会话，它会自动出现在可用 skill 列表里——说一句"我想写本小说"就能验证。
