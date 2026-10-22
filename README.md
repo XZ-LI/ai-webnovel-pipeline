@@ -116,7 +116,7 @@ To check the install is intact:
 python3 ~/.claude/skills/novel-pipeline/scripts/selftest.py
 ```
 
-166 checks, no API calls, runs in seconds.
+169 checks, no API calls, runs in seconds.
 
 ### Which AI coding tool to install into
 

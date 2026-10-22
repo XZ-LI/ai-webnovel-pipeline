@@ -48,6 +48,9 @@ def test_structure():
         "generate_novel_female", "review_loop", "build_templates",
         "novel_config", "setup_api", "selftest", "trigger_test",
         "install_for_agent", "doctor", "conf",
+        # 发章支线。它依赖 loguru/patchright（见 references/publishing.md），
+        # 但这里只做 ast.parse，不 import，所以没装那些包也能查出语法错。
+        "wnu_cli",
     ]
     check("触发测试集存在", (SKILL / "evals" / "trigger_eval.json").exists())
     try:
@@ -504,7 +507,7 @@ def test_advertised_count() -> None:
     实际已经 163。项数是对外宣传的一部分，写错了比不写更糟，而这种数字没人会主动回头核。
     """
     pat = re.compile(r"(\d+)\s*(?:项回归自检|项确定性检查|项自检|项检查|regression checks|checks)")
-    total = len(PASS) + len(FAIL) + 1          # +1 是这一条自己
+    total = len(PASS) + len(FAIL) + 2          # +2 是本函数里的两条
     claims, wrong = [], []
     for doc in ("README.md", "README.zh-CN.md", "INTRO.md", "INTRO.zh-CN.md",
                 "SKILL.md", "AGENTS.md", "references/testing.md"):
@@ -516,6 +519,22 @@ def test_advertised_count() -> None:
             claims.append((doc, int(m.group(1))))
             if int(m.group(1)) != total:
                 wrong.append(f"{doc} 写的是 {m.group(1)}")
+    # 脚本数量同理。文档里一律用阿拉伯数字写，不写 eleven——英文单词没法机器核，
+    # 而「11 个脚本」这种话一旦写进 INTRO 就再也没人回头数。
+    spat = re.compile(r"(\d+)\s*(?:个脚本|Python scripts|scripts there is)")
+    real = len(list((SKILL / "scripts").glob("*.py")))
+    swrong = []
+    for doc in ("README.md", "README.zh-CN.md", "INTRO.md", "INTRO.zh-CN.md",
+                "references/testing.md"):
+        f = SKILL / doc
+        if not f.exists():
+            continue
+        for m in spat.finditer(f.read_text(encoding="utf-8")):
+            if int(m.group(1)) != real:
+                swrong.append(f"{doc} 写的是 {m.group(1)}")
+    check("文档宣传的脚本数与实际一致", not swrong,
+          f"scripts/ 下实际 {real} 个 .py；" + "、".join(swrong[:4]))
+
     check("文档宣传的自检项数与实际一致", claims and not wrong,
           (f"实际 {total} 项；" + "、".join(wrong[:4])) if wrong else "文档里一处都没提项数")
 
