@@ -150,8 +150,19 @@ def main() -> int:
         print(f"[ERROR] 找不到权威指南 {guide}")
         return 1
 
+    if dest == SKILL_DIR or SKILL_DIR in dest.parents:
+        print(f"  ! 目标目录在 skill 安装目录里（{dest}）。入口文件该放在你放小说的工作")
+        print("    目录，不是程序目录——否则 agent 在你真正写书的地方读不到它。")
+
     for k in keys:
         out = dest / AGENTS[k]["path"]
+        # 生成的 AGENTS.md 是个指回权威指南的薄入口，而权威指南自己也叫 AGENTS.md。
+        # 在仓库根目录加 --force 跑一次，就会用两千字节的自指文件盖掉一万多字节的真指南，
+        # 并且覆盖后那个文件指向的是它自己。这件事不该由 --force 决定，直接拒绝。
+        if out.resolve() == guide.resolve():
+            print(f"  ✗ 拒绝覆盖权威指南本身：{out}")
+            print("    这是 AGENTS.md 的原件，不是入口文件。换个 --dest（你放小说的目录）。")
+            continue
         if out.exists() and not args.force:
             print(f"  跳过 {out}（已存在，加 --force 覆盖）")
             continue

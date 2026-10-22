@@ -8,3 +8,13 @@ novel.config.json
 __pycache__/
 *.pyc
 .DS_Store
+
+# install_for_agent.py 在本仓库里跑一次就会生成的入口文件。它们属于使用者
+# 放小说的工作目录，不该进这个仓库——权威指南 AGENTS.md 是原件，不在此列。
+.clinerules
+.windsurfrules
+CONVENTIONS.md
+.qoder/
+.trae/
+.cursor/
+.github/copilot-instructions.md

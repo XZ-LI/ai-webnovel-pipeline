@@ -18,6 +18,7 @@ import ast
 import importlib.util
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -474,6 +475,51 @@ def test_config(monkey_env):
         check("缺 key 时给出明确指引", "setup_api.py" in str(e))
 
 
+def test_agent_entry_guard() -> None:
+    """生成入口文件时不能把权威指南本身盖掉。
+
+    `install_for_agent.py` 给 codex 生成的入口叫 AGENTS.md，而权威指南自己也叫 AGENTS.md。
+    在仓库根目录跑一次 `--agent codex --force`，就会用两千字节的自指入口盖掉一万多字节的
+    真指南。这里真的去调一次（只点 codex，所以除了被拒绝的那个文件什么都不会写），
+    然后确认指南的字节数没变。
+    """
+    guide = SKILL / "AGENTS.md"
+    before = guide.read_bytes()
+    r = subprocess.run(
+        [sys.executable, str(SKILL / "scripts" / "install_for_agent.py"),
+         "--agent", "codex", "--force", "--dest", str(SKILL)],
+        capture_output=True, text=True, timeout=60)
+    check("生成入口文件不会盖掉权威指南", guide.read_bytes() == before,
+          f"AGENTS.md 被改写了（{len(before)} → {len(guide.read_bytes())} 字节）")
+    check("盖掉权威指南时会明确拒绝", "拒绝覆盖权威指南" in (r.stdout + r.stderr),
+          "要让人看懂为什么没写，而不是静默跳过")
+
+
+def test_advertised_count() -> None:
+    """文档里宣传的自检项数必须等于真实项数。
+
+    这条必须在所有别的检查跑完之后调用，因为它要数的就是总数——它把自己也算进去，
+    所以文档里该写的数是「含这一条」的总数。看着有点自指，但它挡住的是一个真实发生过的
+    漂移：加了几十项检查之后，README 和 INTRO 还在写 132，references/testing.md 写 104，
+    实际已经 163。项数是对外宣传的一部分，写错了比不写更糟，而这种数字没人会主动回头核。
+    """
+    pat = re.compile(r"(\d+)\s*(?:项回归自检|项确定性检查|项自检|项检查|regression checks|checks)")
+    total = len(PASS) + len(FAIL) + 1          # +1 是这一条自己
+    claims, wrong = [], []
+    for doc in ("README.md", "README.zh-CN.md", "INTRO.md", "INTRO.zh-CN.md",
+                "SKILL.md", "AGENTS.md", "references/testing.md"):
+        f = SKILL / doc
+        if not f.exists():
+            continue
+        t = f.read_text(encoding="utf-8")
+        for m in pat.finditer(t):
+            claims.append((doc, int(m.group(1))))
+            if int(m.group(1)) != total:
+                wrong.append(f"{doc} 写的是 {m.group(1)}")
+    check("文档宣传的自检项数与实际一致", claims and not wrong,
+          (f"实际 {total} 项；" + "、".join(wrong[:4])) if wrong else "文档里一处都没提项数")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -503,6 +549,8 @@ def main() -> int:
             test_threads(tmp)
             test_genre_and_review()
             test_config(monkey_env)
+            test_agent_entry_guard()
+            test_advertised_count()        # 必须最后跑：它数的是总数
         finally:
             os.chdir(cwd)
             os.environ.clear()
