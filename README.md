@@ -81,6 +81,10 @@ Only these go into each chapter, which is why writing chapter 300 costs about wh
 
 Feeding setting text in is not enough on its own: with dozens of facts flattened into one prompt, a model will quietly drop one of them to make the current scene work. So the bible carries a separate `hard_constraints` list — the lines that void a chapter if broken (the protagonist's physical limits, the cost of their advantage, who is already dead, which powers belong to the late arcs). They are rendered first and restated immediately before the model starts writing. This is a measured necessity, not a precaution: with a mute protagonist and that fact left out of the list, he spoke four times in chapter three.
 
+There is a second kind of collapse that even hard constraints will not catch: **a character acting on information they were never given**. A dies in chapter 7; in chapter 20, B reacts as though they know — but nobody in the prose ever told them. This one is not visible the way "the mute spoke" is, yet a reader notices instantly and asks *how would he know*, and that question takes the trust built over the previous fifty chapters with it.
+
+A character dossier records who someone *is* — personality, abilities, situation — not what they *know*. So each character carries a separate `knows` list: every chapter logs who learned what and in which chapter, and the writing prompt states the boundary before a word is written. A character may not act or reason on anything outside that list. They can guess, suspect, misread — but they cannot simply know. To give someone a new piece of information, the prose has to show how they got it: overheard, witnessed, told, lived through.
+
 ## Where the rules come from
 
 The repository ships **37 genre templates** (19 male-channel, 18 female-channel). They are not ten commandments someone sat down and wrote. The foundation is a **1,110-novel corpus** (570 male-channel, 540 female-channel, stratified by platform rating), with three things run on top of it:
@@ -332,13 +336,15 @@ Agent: (runs review_chapter.py diagnose)
        Mechanical: 2,900 characters, in band; no craft labels; title format correct.
        Scored against the genre's criteria: hook 8 · suspense 8 · imagery 8 ·
        dialogue 5 · chapter differentiation 6.
-       Three findings —
+       Four findings —
 
        1. [Hard constraint] The protagonist cannot speak, but he does here
           Quote: "Who are you?" he rasped.
           Fix: make it inner voice or gesture, or have someone else relay it
-       2. [Quality] Pacing 6: high-intensity visions stacked with no buffer
-       3. [Quality] Differentiation 6: same location and oppressive register as
+       2. [Mechanical] AI flavour · gesture tics: 2 kinds — 不由得 ×4, 缓缓 ×3
+          Fix: keep the one that lands; replace the rest
+       3. [Quality] Pacing 6: high-intensity visions stacked with no buffer
+       4. [Quality] Differentiation 6: same location and oppressive register as
           the previous two chapters
 
        Which do you want fixed? None is a valid answer.
@@ -351,6 +357,16 @@ Agent: (runs revise --fix 1) Done, 2,900 → 2,972 characters.
 Two deliberate design points: **diagnosis and revision are separate commands** with your decision in between — auto-revising every finding tends to replace the passages that were working; and **revision rewrites that chapter's summary in step**, because the summary is the factual basis for the hundreds of chapters after it, and a stale summary propagates the error forever.
 
 If you do not like the revision, `restore` puts the original back.
+
+**About that "AI flavour" finding.** When readers say something smells of AI, they usually do not mean the prose is bad — they mean the narrator is summarising the feeling on their behalf: *his heart was filled with mixed emotions* standing in for the thing that actually happened. Models reach for these phrases because they hold in any context, and holding in any context is precisely what readers are reacting against.
+
+The check runs in the free mechanical pass, against a list in five categories (hollow sentiment, all-purpose transitions, all-purpose adjectives, emotion labels, gesture tics). Three things about it are deliberate:
+
+- **Narration only, never dialogue.** A character who talks in clichés is characterised; a narrator who does is the defect.
+- **Two tiers.** Some phrases are lazy on their first appearance; others (*however*, *just then*) are perfectly normal once and a tic by the sixth time. A single threshold floods the report with noise, and once you have ignored a report twice you stop reading it — which is worse than not checking at all.
+- **Revision replaces rather than deletes.** Cutting *his heart sank* leaves a semantic hole and drops the word count, and what gets written back is usually another cliché; so the instruction is to substitute a concrete action or physical reaction.
+
+The list lives in `assets/ai_cliches.txt`. Put your own additions in `ai_cliches.author.txt` beside it — same format, never overwritten by a rebuild.
 
 ### Step 5 — Keep going
 
@@ -402,7 +418,7 @@ The first run opens a real browser window for you to log in by QR code; then wat
 ~/my-novel/
 ├── premises/<genre>_<timestamp>/   premise options (pitches.md for you, variant_N_premise.txt for the scripts)
 ├── novels/<title>/
-│   ├── bible.json             story bible ← the file worth reading yourself
+│   ├── bible.json             story bible (hard constraints, ledger, each character's knowledge) ← worth reading yourself
 │   ├── arc_plan.txt           current 30-chapter plan ← edit this to change plot direction
 │   ├── summaries.jsonl        per-chapter summaries (only the last 10 enter the context)
 │   ├── arc_digests.jsonl      one paragraph per arc — how the distant past is remembered
@@ -446,7 +462,7 @@ Your agent reads these as needed; you can also just open them:
 | `references/from-scratch.md` | Full walkthrough from nothing to a running serial |
 | `references/genres.md` | How the 37 genre templates work, the shared craft layer, and how to add your own rules |
 | `references/method.md` | The design of the memory layers, the foreshadowing ledger, knowledge boundaries and arc digests, how to roll back a bad chapter, symptom → which layer to fix |
-| `references/reviewing.md` | Chapter diagnosis and revision: what is checked, how to pick findings, where revision stops |
+| `references/reviewing.md` | Chapter diagnosis and revision: what is checked (including how to edit the AI-flavour list), how to pick findings, where revision stops |
 | `references/setup.md` | Environment, switching models, cost estimation, common startup problems |
 | `references/corpus.md` | Advanced: build your own reference corpus and iterate a genre's rules |
 | `references/publishing.md` | Platform configuration and the per-site pitfalls |
