@@ -216,6 +216,106 @@ def save_arc_plan(proj: Path, text: str) -> None:
 
 # ── Bible formatter ───────────────────────────────────────────────────────────
 
+# ── 信息边界（谁知道什么） ────────────────────────────────────────────────────
+# 长篇最隐蔽的一类崩坏：人物用了他不该知道的信息。A 在第 7 章死了，第 20 章 B 的反应
+# 像是知道这件事——可正文里没人告诉过他。这类错不像"哑巴说话"那样显眼，读者却会立刻
+# 察觉"他怎么会知道"，而且一旦写出去就无法回收：后面的章节全都建立在这个错误之上。
+#
+# 人物档案记的是"他是谁"（性格、能力、处境），不是"他知道什么"。后者和伏笔一样是会变的
+# 状态，也和伏笔一样，靠最近 10 章摘要兜不住——第 3 章谁听见了什么，到第 40 章只能靠
+# 这里记着。所以它跟着 open_threads 用同一套机制：每章登记、常驻上下文、渲染层截断。
+
+MAX_NEW_KNOWLEDGE_PER_CHAPTER = 3   # 单章能登记几条。和伏笔同理：不截断的话模型会把
+                                    # 人物看见的每个细节都报上来，真正要紧的被稀释
+MAX_KNOWS_SHOWN = 6                 # 每个人物渲染进提示词的条数，取最近的
+
+
+def iter_characters(bible: dict):
+    """遍历人物条目，产出 (名字, 可原地修改的 dict)。
+
+    圣经里的人物有三种形状，模型每次刷新都可能换一种：扁平 {"protagonist": {...}}、
+    嵌套 {"supporting": {"莉安娜": {...}}}、以及列表。format_bible 为了渲染把它们拍平成
+    一个新列表，那份是拷贝，改了不会写回去。这里产出的是原始 dict 的引用，所以调用方
+    改完直接 save_json 就能落盘。
+    """
+    raw = bible.get("characters", [])
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, dict) and item.get("name"):
+                yield str(item["name"]), item
+        return
+    if not isinstance(raw, dict):
+        return
+    for role_key, val in raw.items():
+        if isinstance(val, dict):
+            if "name" in val:
+                yield str(val["name"]), val
+            else:
+                for char_name, char_data in val.items():
+                    if isinstance(char_data, dict):
+                        yield str(char_name), char_data
+        elif isinstance(val, list):
+            for item in val:
+                if isinstance(item, dict) and item.get("name"):
+                    yield str(item["name"]), item
+
+
+def match_character(bible: dict, who: str):
+    """按模型给的名字找人物条目。找不到返回 None。
+
+    模型报上来的名字常是简称（"伊利亚"），圣经里是全名（"伊利亚·洛恩"），反过来也有。
+    所以双向包含都算命中，取最长的那个——"塞拉" 同时像 "塞拉菲妮" 和 "塞拉斯" 时，
+    宁可不猜：两个都匹配上就返回 None，让这条记不进去，也比记到错人头上好。
+    """
+    who = (who or "").strip()
+    if not who:
+        return None
+    hits = [(name, ref) for name, ref in iter_characters(bible)
+            if name and (who in name or name in who)]
+    if len(hits) != 1:
+        return None
+    return hits[0][1]
+
+
+def update_knowledge(proj: Path, chapter_n: int, changes: list) -> int:
+    """把本章「谁知道了什么」写进人物档案。返回登记条数。"""
+    bible_path = proj / "bible.json"
+    if not bible_path.exists() or not changes:
+        return 0
+    bible = load_json(bible_path)
+    added = 0
+    for item in changes[:MAX_NEW_KNOWLEDGE_PER_CHAPTER]:
+        if not isinstance(item, dict):
+            continue
+        what = str(item.get("learned") or "").strip()
+        ref = match_character(bible, str(item.get("who") or ""))
+        if not what or ref is None:
+            continue
+        knows = ref.setdefault("knows", [])
+        if not isinstance(knows, list):
+            knows = ref["knows"] = []
+        if any(isinstance(k, dict) and str(k.get("what", ""))[:12] == what[:12]
+               for k in knows):
+            continue                      # 已经记过，别重复
+        knows.append({"what": what, "chapter": chapter_n})
+        added += 1
+    if added:
+        save_json(bible_path, bible)
+    return added
+
+
+def format_knows(ch: dict) -> str:
+    """渲染一个人物的已知信息。空的就返回空串，不占提示词。"""
+    knows = ch.get("knows") or []
+    items = [k for k in knows if isinstance(k, dict) and k.get("what")]
+    if not items:
+        return ""
+    shown = items[-MAX_KNOWS_SHOWN:]
+    more = f"（更早 {len(items) - len(shown)} 条略）" if len(items) > len(shown) else ""
+    body = "；".join(f"{k['what']}（第{k.get('chapter','?')}章得知）" for k in shown)
+    return f"  已知{more}：{body}"
+
+
 def format_bible(bible: dict) -> str:
     """Render the story bible as readable text for prompt injection."""
     lines = []
@@ -288,6 +388,9 @@ def format_bible(bible: dict) -> str:
                 lines.append(f"  近期里程碑{more}：" + "；".join(str(x) for x in shown))
         lines.append(f"  当前状态：{ch.get('current_state','')}")
         lines.append(f"  能力：{ch.get('abilities','')}")
+        kn = format_knows(ch)
+        if kn:
+            lines.append(kn)
         rels = ch.get("relationships", {})
         if rels:
             lines.append("  关系：" + "；".join(f"{k}→{v}" for k, v in rels.items()))
@@ -347,10 +450,11 @@ def parse_summary_result(raw: str, chapter_n: int) -> tuple:
         if isinstance(data, dict) and data.get("summary"):
             return (str(data["summary"]).strip(),
                     [s for s in (data.get("new_threads") or []) if str(s).strip()],
-                    [s for s in (data.get("resolved_threads") or []) if str(s).strip()])
+                    [s for s in (data.get("resolved_threads") or []) if str(s).strip()],
+                    [k for k in (data.get("knowledge_changes") or []) if isinstance(k, dict)])
     except json.JSONDecodeError:
         pass
-    return raw.strip(), [], []
+    return raw.strip(), [], [], []
 
 
 def update_threads(proj: Path, chapter_n: int, new_threads: list, resolved: list) -> tuple:
@@ -565,6 +669,80 @@ def filter_chapter_lines(text: str) -> str:
     return "\n".join(kept).strip()
 
 
+# ── AI 味 ────────────────────────────────────────────────────────────────────
+# 读者说"一股 AI 味"的时候，指的通常不是文笔差，是叙述者在替他总结感受：
+# 「他心中百感交集」代替了把那件事写出来。模型偏爱这类词，因为它们在任何语境里都成立。
+#
+# 词表在 assets/ai_cliches.txt，作者的补充在 ai_cliches.author.txt。分两档：铁套话出现
+# 一次就报，常见套话达到密度阈值才报——「然而」出现一次正常，出现六次才是毛病，一刀切
+# 会把报告刷成噪音，作者看两次就不看了，比不报更糟。
+
+AI_CLICHE_SOFT_MIN = 3   # 非铁套话在一章叙述里出现几次才算毛病
+
+
+def strip_dialogue(text: str) -> str:
+    """把对话内容挖掉，只留叙述。
+
+    人物嘴里说套话是人物特征（一个爱说"命运如此"的角色是立住了的），叙述者说套话才是
+    AI 味。所以查套话之前先把引号里的内容剥掉，否则会把写得好的台词当成毛病报上来。
+    """
+    import re as _re
+    # 成对的引号都挖掉；中文网文主要用「」和""，兼容 ''、《》不算对话所以不碰
+    for a, b in (("「", "」"), ("“", "”"), ("‘", "’"), ('"', '"'), ("'", "'")):
+        text = _re.sub(_re.escape(a) + r"[^" + _re.escape(a + b) + r"]{0,200}?" + _re.escape(b),
+                       "　", text)
+    return text
+
+
+def load_ai_cliches() -> list:
+    """读套话词表，返回 [(词, 分类, 修法, 是否铁套话)]。
+
+    读不到就返回空表——这一项是增量检查，缺了它其余检查照跑，不该让整章写作失败。
+    """
+    out = []
+    for name in ("ai_cliches.txt", "ai_cliches.author.txt"):
+        f = GENRE_PROMPT_DIR.parent / name          # assets/ 下，与 prompts/ 同级
+        if not f.exists():
+            continue
+        cat, advice = "", ""
+        try:
+            lines = f.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for raw in lines:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("["):
+                head, _, rest = line.partition("]")
+                cat = head.lstrip("[").strip()
+                advice = rest.strip()
+                continue
+            hard = line.startswith("!")
+            word = line.lstrip("!").strip()
+            if word:
+                out.append((word, cat, advice, hard))
+    return out
+
+
+def find_ai_cliches(text: str) -> list:
+    """在叙述里找套话。返回 [(词, 分类, 修法, 次数, 是否铁套话)]，按次数降序。"""
+    narration = strip_dialogue(text)
+    hits = []
+    for word, cat, advice, hard in load_ai_cliches():
+        n = narration.count(word)
+        if n and (hard or n >= AI_CLICHE_SOFT_MIN):
+            hits.append((word, cat, advice, n, hard))
+    # 同一分类里，长词包含短词时只留长的（「涌上心头」命中就不必再报「涌起一股」）
+    hits.sort(key=lambda h: (-len(h[0]), -h[3]))
+    kept = []
+    for h in hits:
+        if not any(h[0] != k[0] and h[0] in k[0] for k in kept):
+            kept.append(h)
+    kept.sort(key=lambda h: (not h[4], -h[3]))
+    return kept
+
+
 def strip_technique_labels(text: str) -> str:
     """Remove writing-technique annotations the model accidentally includes in prose."""
     import re as _re
@@ -742,6 +920,19 @@ def build_chapter_prompt(
                      "\n兑现其中任意一条都比埋新伏笔更值；本章若兑现了，在摘要里写明。\n"
                      ) if threads_text else ""
 
+    # 信息边界。记录在人物档案里、也渲染在圣经里了，但光给状态不够——必须明确写出
+    # 禁止项，否则模型会为了把场景写顺而让人物"顺理成章地"知道他不该知道的事。
+    # 这类错和哑巴说话一样属于写出去就收不回：后面每章都建立在它之上。
+    knows_any = any((ch.get("knows") or []) for _, ch in iter_characters(bible))
+    knowledge_block = ("\n## 信息边界（谁知道什么）\n"
+                       "上面每个人物的「已知」是他**目前掌握的全部关键信息**。\n"
+                       "- 人物不得依据不在他「已知」里的信息行动、推理或反应。\n"
+                       "- 他可以猜、可以怀疑、可以误解——但不能直接知道。\n"
+                       "- 要让某人获知一条新信息，就在正文里**写出他怎么知道的**"
+                       "（听见、看见、被告知、亲历），不要让它凭空成立。\n"
+                       "读者对这类错极其敏感：他会立刻想「他怎么会知道」，而这一问会把"
+                       "前面几十章的信任一起带走。\n") if knows_any else ""
+
     hard = bible.get("hard_constraints") or []
     hard_block = ""
     if hard:
@@ -775,6 +966,7 @@ def build_chapter_prompt(
         {threads_block}
         {recent_text}
         {style_block}
+        {knowledge_block}
         {hard_block}
         ## 任务：写第{next_chapter_n}章
 
@@ -834,6 +1026,20 @@ def build_compress_prompt(chapter_n: int, chapter_text: str, open_threads: list 
           每条写成一句可检查的话，例如"兄长尸体上的符文与主角掌心的裂痕同形，来历未解释"。
         - resolved_threads：本章兑现或解释了哪些**以前**埋下的伏笔，照抄下面清单里的原文。
 
+        ## 顺带记下谁知道了什么
+
+        长篇最隐蔽的崩坏是人物用了他不该知道的信息——A 在第 7 章死了，第 20 章 B 的反应
+        像是知道这件事，可正文里没人告诉过他。人物档案记的是"他是谁"，不记"他知道什么"，
+        所以这里要登记。
+
+        - knowledge_changes：本章有人**获知了一条他原先不知道的重要信息**，最多 3 条。
+          算：听见了关键对话、看见了尸体或证据、被告知了身份或计划、亲历了某个事件。
+          不算：读者知道但人物不知道的事、人物的猜测和怀疑（那是伏笔不是知情）、
+          环境里的常识、以及"他意识到自己很愤怒"这类心理活动。
+          判断标准：**这条信息会改变他之后的行动吗**。不会，就别登记。
+          who 写正文里出现的人名（简称也行），learned 写一句话，例如
+          {{"who": "塞拉菲妮", "learned": "器皿计划的真正目标是伊利亚"}}
+
         ### 目前还没兑现的伏笔
         {open_list}
 
@@ -841,7 +1047,8 @@ def build_compress_prompt(chapter_n: int, chapter_text: str, open_threads: list 
         {{
           "summary": "摘要正文",
           "new_threads": ["……"],
-          "resolved_threads": ["……"]
+          "resolved_threads": ["……"],
+          "knowledge_changes": [{{"who": "人名", "learned": "他知道了什么"}}]
         }}
 
         --- 正文 ---
@@ -965,6 +1172,12 @@ def build_init_bible_prompt(novel_text: str) -> str:
         或 `overall_arc` 里描述，不要写成"目前掌握""当前处境"。
         这两条不矛盾：**人物要全，状态要准**。
 
+        **`knows` 写他知道什么，不是写他是谁**。这个字段是用来防止后面几百章里人物
+        用上他不该知道的信息——第 7 章死的人，第 20 章不该有人无端知道。所以：
+        只写第一章正文里他确实已经掌握的关键信息，一两条就够，写不出来就留空数组；
+        不要把读者知道而人物不知道的事写进去，也不要写他的猜测和怀疑（那是伏笔，
+        不是知情）。未登场的人物这一项留空。
+
         JSON结构如下（严格遵守字段名）：
         {{
           "title": "书名",
@@ -998,6 +1211,7 @@ def build_init_bible_prompt(novel_text: str) -> str:
               "background": "背景经历",
               "current_state": "当前处境和状态",
               "abilities": "能力/技能",
+              "knows": [{{"what": "他目前已经掌握的一条关键信息", "chapter": 1}}],
               "relationships": {{"其他角色名": "关系描述"}}
             }}
           ],
@@ -1135,11 +1349,13 @@ def init_project(client: OpenAI, model: str, novel_path: Path, max_chapter: int 
                                        load_json(proj / "bible.json").get("open_threads")),
             temp=0.3,
         )
-        summary, new_th, paid_th = parse_summary_result(summary_raw, ch_n)
+        summary, new_th, paid_th, know_ch = parse_summary_result(summary_raw, ch_n)
         clean_title = ch_title.split("（")[0].strip()[:30]
         append_summary(proj, {"chapter": ch_n, "title": clean_title, "summary": summary})
         added, paid = update_threads(proj, ch_n, new_th, paid_th)
-        print("完成" + (f"（伏笔 +{added}）" if added else ""))
+        known = update_knowledge(proj, ch_n, know_ch)
+        tags = ([f"伏笔 +{added}"] if added else []) + ([f"知情 +{known}"] if known else [])
+        print("完成" + (f"（{'，'.join(tags)}）" if tags else ""))
         last_chapter_saved = max(last_chapter_saved, ch_n)
 
     if not existing_chapters:
@@ -1248,10 +1464,13 @@ def write_chapter(client: OpenAI, model: str, proj: Path, style_dir: str = "corp
         user=build_compress_prompt(next_n, chapter_text, bible.get("open_threads")),
         temp=0.3,
     )
-    summary_text, new_th, paid_th = parse_summary_result(summary_raw, next_n)
+    summary_text, new_th, paid_th, know_ch = parse_summary_result(summary_raw, next_n)
     added, paid = update_threads(proj, next_n, new_th, paid_th)
+    known = update_knowledge(proj, next_n, know_ch)
     if added or paid:
         print(f"[伏笔 +{added}/兑现{paid}]", end=" ", flush=True)
+    if known:
+        print(f"[知情 +{known}]", end=" ", flush=True)
     import re
     title_m = re.search(r"第\s*\d+\s*章\s*(.+)", chapter_text[:200])
     ch_title = title_m.group(1).strip()[:30] if title_m else ""
@@ -1466,6 +1685,24 @@ def reconcile_bible(old: dict, new: dict) -> tuple:
     if old_n and new_n < old_n:
         merged["characters"] = old["characters"]
         notes.append(f"人物从 {old_n} 个掉到 {new_n} 个，判定为丢失，已回滚人物档案")
+
+    # 信息边界按人物逐个回填。刷新圣经的提示词不会提 knows，模型照它自己的结构重写一遍
+    # 人物档案，这个字段就整个消失了——和当初 hard_constraints 被改名成 absolute_facts
+    # 是同一类事故。提示词管不住的东西就在代码里兜住，别指望模型记得一个它没见过的字段。
+    old_knows = {name: ch.get("knows") for name, ch in iter_characters(old)
+                 if ch.get("knows")}
+    if old_knows:
+        restored = 0
+        for name, ch in iter_characters(merged):
+            if ch.get("knows"):
+                continue
+            keep = old_knows.get(name) or next(
+                (v for k, v in old_knows.items() if k and (k in name or name in k)), None)
+            if keep:
+                ch["knows"] = keep
+                restored += 1
+        if restored:
+            notes.append(f"{restored} 个人物的已知信息丢失，已回填（刷新圣经不该清空信息边界）")
 
     return merged, notes
 

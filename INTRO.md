@@ -21,6 +21,7 @@ A layered memory. Each chapter is written from a few of these, not from the whol
 | Hard constraints | Lines that void a chapter if broken (the protagonist is mute; the dead stay dead; this power belongs to the late arcs) | Set by the author, rarely changes |
 | Story bible | World rules, character dossiers, overall arc | Auto-refreshed every 10 chapters |
 | Foreshadowing ledger | What has been planted and not yet paid off, and in which chapter | Logged automatically each chapter |
+| Knowledge boundaries | What each character currently knows, and the chapter they learned it in | Logged automatically each chapter |
 | Arc digests | One paragraph per 30-chapter arc — how the distant past is remembered | Compressed when an arc completes |
 | Arc plan | What the current 30 chapters must deliver | Replaced when an arc completes |
 | Summaries + recent prose | Last 10 chapter summaries + last 2 full chapters | Appended each chapter |
@@ -51,7 +52,7 @@ This project's own A/B says the same. The score gap between with-templates and w
 
 **Multiple options at every outline stage.** Project premises and each 30-chapter arc plan are generated as several distinct options for the author to choose from — one option only lets them say yes or no; three side by side lets them say "the ability from #2 with the opening from #1", which is the information you actually need.
 
-**Diagnosis and revision.** After a chapter is written it can audit itself: first a free mechanical pass (length out of band, craft labels leaking into prose, over-long paragraphs, opening technique repeating the previous chapter), then a scored pass against the genre's own criteria plus a check of every hard constraint — every finding must quote the offending line. Whether to revise, and which findings to act on, is the author's call. Revision backs up the original and rewrites that chapter's summary in step.
+**Diagnosis and revision.** After a chapter is written it can audit itself: first a free mechanical pass (length out of band, craft labels leaking into prose, over-long paragraphs, opening technique repeating the previous chapter, **AI-flavour clichés**), then a scored pass against the genre's own criteria plus a check of every hard constraint — every finding must quote the offending line. Whether to revise, and which findings to act on, is the author's call. Revision backs up the original and rewrites that chapter's summary in step.
 
 **Optional publishing.** Browser automation for two Chinese platforms (Fanqie, Qimao), with daily scheduling on Beijing time.
 
@@ -60,11 +61,11 @@ This project's own A/B says the same. The score gap between with-templates and w
 - **Agent-agnostic.** The authoritative guide is a single `AGENTS.md` (the emerging cross-agent convention); the `SKILL.md` that Claude Code reads is the same content plus a frontmatter block. `scripts/install_for_agent.py` generates entry files in each tool's own format for Cursor / Cline / Copilot / Windsurf / Aider, all pointing back at that one guide, so the content never forks. Across 15 scripts there is not one Claude or Anthropic dependency — standard library plus `openai`. The only exception is the optional publishing script, which needs a browser-automation package (`patchright loguru pyyaml`); skip publishing and you never install it.
 - **Model-agnostic.** Six built-in provider presets (OpenAI, DeepSeek, Qwen, Kimi, GLM, local Ollama) and any OpenAI-compatible `--base-url`. One command sets it and verifies the connection on the spot.
 - **Human in the loop.** Diagnosis and revision are two separate commands with the author's decision in between. It does not revise on its own, and it does not decide the direction of the story.
-- **169 regression checks**, no API calls, runs in seconds — prompt assembly, prose cleaning, the foreshadowing ledger, genre resolution, config precedence, and whether the two guides have drifted apart.
+- **194 regression checks**, no API calls, runs in seconds — prompt assembly, prose cleaning, the foreshadowing ledger, knowledge boundaries, AI-flavour detection, genre resolution, config precedence, and whether the two guides have drifted apart.
 - **The testing method is documented too**: trigger testing (does the skill even get picked up), a behavioural checklist, quality A/B and blind evaluation — including what each class of test can and cannot tell you.
 
 ## One honest boundary
 
-All 169 checks green, an 8-out-of-10 diagnosis and a clean behavioural checklist still permit a novel nobody wants to read. What this guarantees is the absence of technical accidents — no contradicted world rules, no mute protagonist suddenly speaking, no runaway chapter lengths, no forgotten setups. It does not guarantee the book is good. That part comes from the premise the author sets, the option they pick, and what they say after reading.
+All 194 checks green, an 8-out-of-10 diagnosis and a clean behavioural checklist still permit a novel nobody wants to read. What this guarantees is the absence of technical accidents — no contradicted world rules, no mute protagonist suddenly speaking, no runaway chapter lengths, no forgotten setups, nobody acting on information they were never told. It does not guarantee the book is good. That part comes from the premise the author sets, the option they pick, and what they say after reading.
 
 For usage, see [README.md](README.md).

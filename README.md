@@ -70,13 +70,14 @@ The core of this skill is a layered memory:
 |---|---|---|---|
 | Story bible | `bible.json` | World rules, character dossiers, overall arc, plus a set of **lines that must never be crossed** | Every 10 chapters |
 | Foreshadowing ledger | `open_threads` in `bible.json` | What has been planted and not yet paid off, and in which chapter | Each chapter |
+| Knowledge boundaries | `knows` on each character | What each character currently knows, and the chapter they learned it in | Each chapter |
 | Arc digests | `arc_digests.jsonl` | One paragraph per arc — how the distant past is remembered | When an arc completes |
 | Arc plan | `arc_plan.txt` | What the current 30 chapters must deliver | When an arc completes |
 | Summaries + recent prose | `summaries.jsonl` / `chapters/` | Last 10 summaries + last 2 full chapters | Each chapter |
 
 Only these go into each chapter, which is why writing chapter 300 costs about what chapter 10 did — measured input flattens out after chapter 10 at roughly 20k tokens, and chapter 1,000 is the same number.
 
-**So how long can it actually run?** There is no arithmetic ceiling; the limits are budget and patience. Only the last 10 summaries enter the context, so everything earlier is carried by the bible, the ledger and the arc digests — the ledger is what keeps "the rune from chapter 7" alive at chapter 200 (and flags it once 30 chapters pass unpaid), and the digests are what keep a 200-chapter book from degenerating into one self-contained episode per arc.
+**So how long can it actually run?** There is no arithmetic ceiling; the limits are budget and patience. Only the last 10 summaries enter the context, so everything earlier is carried by the bible, the ledger, the knowledge boundaries and the arc digests — the ledger is what keeps "the rune from chapter 7" alive at chapter 200 (and flags it once 30 chapters pass unpaid), and the digests are what keep a 200-chapter book from degenerating into one self-contained episode per arc.
 
 Feeding setting text in is not enough on its own: with dozens of facts flattened into one prompt, a model will quietly drop one of them to make the current scene work. So the bible carries a separate `hard_constraints` list — the lines that void a chapter if broken (the protagonist's physical limits, the cost of their advantage, who is already dead, which powers belong to the late arcs). They are rendered first and restated immediately before the model starts writing. This is a measured necessity, not a precaution: with a mute protagonist and that fact left out of the list, he spoke four times in chapter three.
 
@@ -116,7 +117,7 @@ To check the install is intact:
 python3 ~/.claude/skills/novel-pipeline/scripts/selftest.py
 ```
 
-169 checks, no API calls, runs in seconds.
+194 checks, no API calls, runs in seconds.
 
 ### Which AI coding tool to install into
 
@@ -444,7 +445,7 @@ Your agent reads these as needed; you can also just open them:
 |---|---|
 | `references/from-scratch.md` | Full walkthrough from nothing to a running serial |
 | `references/genres.md` | How the 37 genre templates work, the shared craft layer, and how to add your own rules |
-| `references/method.md` | The design of the memory layers, the foreshadowing ledger and arc digests, how to roll back a bad chapter, symptom → which layer to fix |
+| `references/method.md` | The design of the memory layers, the foreshadowing ledger, knowledge boundaries and arc digests, how to roll back a bad chapter, symptom → which layer to fix |
 | `references/reviewing.md` | Chapter diagnosis and revision: what is checked, how to pick findings, where revision stops |
 | `references/setup.md` | Environment, switching models, cost estimation, common startup problems |
 | `references/corpus.md` | Advanced: build your own reference corpus and iterate a genre's rules |

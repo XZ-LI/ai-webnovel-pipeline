@@ -7,7 +7,7 @@ review_chapter.py — 章节诊断与改稿。诊断不改稿，改稿要你点�
 
 诊断做两层：
   机械层（不花钱）  字数越界、写作技巧标签残留、章节标题格式、超长段落、
-                   与上一章开篇手法重复
+                   与上一章开篇手法重复、AI 味套话（只查叙述，对话里不算）
   语义层（一次调用）按题材模版的质量自检表逐项打分，并逐条核对 bible.json 的
                    hard_constraints，每个问题都要给出原文证据
 
@@ -48,6 +48,7 @@ from write_novel import (  # noqa: E402
     load_json,
     save_chapter,
     strip_technique_labels,
+    find_ai_cliches,
 )
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
@@ -145,6 +146,22 @@ def mechanical_checks(text: str, chapter_n: int, prev_text: str = "") -> list:
                 "detail": f"与上一章同为「{style(body)}」",
                 "evidence": f"上章：{opener(prev_text)}… / 本章：{opener(body)}…",
                 "advice": "连续同样的切入方式会让读者觉得每章都一样",
+            })
+
+    # AI 味。读者说"一股 AI 味"时指的通常不是文笔差，是叙述者在替他总结感受。
+    # 只查叙述：人物嘴里说套话是人物特征，叙述者说才是毛病。词表在 assets/ai_cliches.txt。
+    cliches = find_ai_cliches(body)
+    if cliches:
+        by_cat = {}
+        for word, cat, advice, n, hard in cliches:
+            by_cat.setdefault((cat, advice), []).append(
+                f"{word}{'×' + str(n) if n > 1 else ''}")
+        for (cat, advice), words in by_cat.items():
+            issues.append({
+                "kind": f"AI 味·{cat}",
+                "detail": f"{len(words)} 处：" + "、".join(words),
+                "evidence": "",
+                "advice": advice or "换成具体的动作或细节，别让叙述者替读者总结",
             })
     return issues
 
@@ -396,6 +413,10 @@ def build_revise_prompt(text: str, chapter_n: int, picked: list, hard: list,
 - 字数保持在 {CHAPTER_MIN_CHARS}-{CHAPTER_MAX_CHARS} 字。
 - 正文里不许出现任何写作技巧标签（如"心理——""长句："）或元评论。
 - 首行必须是「第{chapter_n}章 标题」，标题可以沿用原标题。
+- **套话要替换，不要删掉**。技巧标签是垃圾，删了就干净；套话不是——删掉"他心头一紧"
+  会留一个语义空洞，该换成一个具体的动作或生理反应（"他把铜铃按住，不让它响"）。
+  删字数会掉，补回来的又往往是另一句套话，所以这里要的是换，不是删。
+  同一个词在对话里出现不用改：人物爱说套话是人物特征，叙述者说才是毛病。
 
 ## 原文
 {text}

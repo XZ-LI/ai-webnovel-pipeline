@@ -20,6 +20,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 SKILL = Path(__file__).resolve().parent.parent
@@ -350,12 +351,12 @@ def test_cleaner():
 def test_threads(tmp: Path):
     wn = load("write_novel")
     check("JSON 摘要解析",
-          wn.parse_summary_result('{"summary":"S","new_threads":["A"],"resolved_threads":["B"]}', 1)
+          wn.parse_summary_result('{"summary":"S","new_threads":["A"],"resolved_threads":["B"]}', 1)[:3]
           == ("S", ["A"], ["B"]))
     check("带代码围栏也能解析",
           wn.parse_summary_result('```json\n{"summary":"S","new_threads":[],"resolved_threads":[]}\n```', 1)[0] == "S")
     plain = "模型没给 JSON，直接一段文字。"
-    check("非 JSON 退回纯文本摘要", wn.parse_summary_result(plain, 1) == (plain, [], []))
+    check("非 JSON 退回纯文本摘要", wn.parse_summary_result(plain, 1) == (plain, [], [], []))
 
     proj = tmp / "novels" / "台账"
     proj.mkdir(parents=True, exist_ok=True)
@@ -478,6 +479,118 @@ def test_config(monkey_env):
         check("缺 key 时给出明确指引", "setup_api.py" in str(e))
 
 
+def test_ai_cliches() -> None:
+    """AI 味检测。重点不是"能抓到"，是"不乱抓"——误报会让作者不再看报告。"""
+    wn = load("write_novel")
+    cl = wn.load_ai_cliches()
+    check("套话词表非空", len(cl) >= 40, f"只有 {len(cl)} 条")
+    check("词表分两档", any(c[3] for c in cl) and any(not c[3] for c in cl),
+          "铁套话出现一次就报、常见套话按密度报；只有一档会把报告刷成噪音")
+    check("词表每条都带分类和修法", all(c[1] and c[2] for c in cl),
+          "报出问题不给修法，作者只会觉得被挑刺")
+
+    # 对话豁免：人物爱说套话是人物特征，叙述者说才是毛病
+    check("叙述里的套话会报", [h[0] for h in wn.find_ai_cliches("他心中百感交集。")] == ["百感交集"])
+    check("对话里的套话不报", not wn.find_ai_cliches("「我心中百感交集。」他说。"),
+          "剥不掉引号就会把写得好的台词当毛病报上来")
+
+    # 密度档：单次正常，超阈值才是抽动
+    one = wn.find_ai_cliches("然而他走了。")
+    many = wn.find_ai_cliches("然而。" * wn.AI_CLICHE_SOFT_MIN)
+    check("常见套话出现一次不报", not one)
+    check("常见套话达到阈值才报", [h[0] for h in many] == ["然而"])
+
+    # 真实样例上不该误报。这三章是带题材规则写出来的，本来就干净；
+    # 哪天改词表改出一堆误报，这一条会先叫。
+    ex = SKILL / "examples" / "众神低语者" / "chapters"
+    if ex.is_dir():
+        noisy = {}
+        for f in sorted(ex.glob("*.txt")):
+            hits = wn.find_ai_cliches(f.read_text(encoding="utf-8"))
+            if hits:
+                noisy[f.name] = [h[0] for h in hits]
+        check("干净样例上不误报", not noisy, f"误报：{noisy}")
+
+    # 诊断器真的接上了
+    rc = load("review_chapter")
+    bad = "第1章 测\n\n" + "时光荏苒，他心中百感交集。" + "填" * 2600
+    kinds = [i["kind"] for i in rc.mechanical_checks(bad, 1)]
+    check("诊断器会报 AI 味", any(k.startswith("AI 味") for k in kinds), f"报出的是：{kinds}")
+    check("AI 味按分类归并", len([k for k in kinds if k.startswith("AI 味")]) <= 5,
+          "逐词报会把报告刷满，要按分类合并")
+
+
+def test_knowledge() -> None:
+    """信息边界。人物不得用他不该知道的信息——这类错写出去就收不回。"""
+    wn = load("write_novel")
+
+    # 人物档案有三种形状，模型每次刷新都可能换一种
+    shapes = {
+        "扁平": {"characters": {"protagonist": {"name": "甲"}}},
+        "嵌套": {"characters": {"supporting": {"乙": {"personality": "x"}}}},
+        "列表": {"characters": [{"name": "丙"}]},
+    }
+    for label, b in shapes.items():
+        names = [n for n, _ in wn.iter_characters(b)]
+        check(f"人物遍历支持{label}结构", len(names) == 1, f"拿到 {names}")
+
+    # 产出的必须是可原地改的引用，否则 update_knowledge 改完存不下去
+    b = {"characters": {"supporting": {"乙": {}}}}
+    for _, ref in wn.iter_characters(b):
+        ref["knows"] = [{"what": "x", "chapter": 1}]
+    check("人物遍历产出可原地修改的引用",
+          b["characters"]["supporting"]["乙"].get("knows"),
+          "format_bible 那份拍平的拷贝改了不会写回圣经")
+
+    # 名字歧义时宁可不记，也别记到错人头上
+    amb = {"characters": [{"name": "塞拉菲妮"}, {"name": "塞拉斯"}]}
+    check("人名歧义时不猜", wn.match_character(amb, "塞拉") is None)
+    check("人名简称能对上全名",
+          (wn.match_character({"characters": [{"name": "伊利亚·洛恩"}]}, "伊利亚") or {}).get("name")
+          == "伊利亚·洛恩")
+
+    with tempfile.TemporaryDirectory() as td:
+        proj = Path(td)
+        base = {"characters": [{"name": "甲"}, {"name": "乙"}]}
+        (proj / "bible.json").write_text(json.dumps(base, ensure_ascii=False), encoding="utf-8")
+        n = wn.update_knowledge(proj, 3, [
+            {"who": "甲", "learned": "真相A"},
+            {"who": "查无此人", "learned": "该被丢掉"},
+        ])
+        check("知情登记会丢掉对不上的人名", n == 1, f"登记了 {n} 条")
+        over = wn.update_knowledge(proj, 4, [
+            {"who": "乙", "learned": f"信息{i}"} for i in range(10)])
+        check("单章知情登记有上限", over == wn.MAX_NEW_KNOWLEDGE_PER_CHAPTER,
+              f"登记了 {over} 条，上限应为 {wn.MAX_NEW_KNOWLEDGE_PER_CHAPTER}")
+
+    # 渲染截断：几百章后一个人物能攒几十条，不截断会挤掉近期原文的预算
+    many = {"knows": [{"what": f"信息{i}", "chapter": i} for i in range(30)]}
+    out = wn.format_knows(many)
+    check("已知信息渲染有上限", out.count("；") + 1 <= wn.MAX_KNOWS_SHOWN)
+    check("已知信息渲染标注了省略条数", "更早" in out)
+    check("没有已知信息就不渲染", wn.format_knows({}) == "")
+
+    # 刷新圣经不该清空信息边界。这是 hard_constraints 被改名那次的同类事故。
+    old = {"characters": {"protagonist": {"name": "甲", "knows": [{"what": "真相", "chapter": 3}]}}}
+    new = {"characters": {"protagonist": {"name": "甲", "personality": "重写过"}}}
+    merged, notes = wn.reconcile_bible(old, new)
+    kept = next((ch.get("knows") for _, ch in wn.iter_characters(merged)), None)
+    check("刷新圣经会回填信息边界", bool(kept),
+          "模型不认识 knows 这个字段，重写人物档案时会整个丢掉")
+    check("回填信息边界时有说明", any("已知" in n for n in notes))
+
+    # 光记录不约束等于没做：提示词里必须有禁止条款，且无人知情时不占 token
+    with tempfile.TemporaryDirectory() as td:
+        proj = Path(td)
+        with_k = {"characters": [{"name": "甲", "knows": [{"what": "真相", "chapter": 1}]}]}
+        pr = wn.build_chapter_prompt(with_k, "", [], [], 2, "", proj=proj)
+        check("有知情记录时提示词带信息边界禁止条款",
+              "## 信息边界" in pr and "不得依据不在他" in pr)
+        pr2 = wn.build_chapter_prompt({"characters": [{"name": "甲"}]}, "", [], [], 2, "", proj=proj)
+        check("无知情记录时不渲染信息边界段", "## 信息边界" not in pr2,
+              "空段落白占提示词预算")
+
+
 def test_agent_entry_guard() -> None:
     """生成入口文件时不能把权威指南本身盖掉。
 
@@ -568,6 +681,8 @@ def main() -> int:
             test_threads(tmp)
             test_genre_and_review()
             test_config(monkey_env)
+            test_ai_cliches()
+            test_knowledge()
             test_agent_entry_guard()
             test_advertised_count()        # 必须最后跑：它数的是总数
         finally:
