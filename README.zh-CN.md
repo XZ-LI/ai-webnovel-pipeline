@@ -120,7 +120,7 @@ git clone https://github.com/XZ-LI/ai-webnovel-pipeline.git <你的项目>/.clau
 python3 ~/.claude/skills/novel-pipeline/scripts/selftest.py
 ```
 
-194 项检查，不调 API、几秒跑完。
+196 项检查，不调 API、几秒跑完。
 
 ### 装进哪个 AI 编码工具
 
@@ -159,7 +159,7 @@ python3 ~/.claude/skills/novel-pipeline/scripts/install_for_agent.py --agent cli
 
 **完全不用 agent 也成立**：下面每一步都是一条命令。agent 的作用是替你判断现在该跑哪一步、把产出念给你听、在该你做决定的地方停下来问。
 
-> 实测只在 Claude Code 上做过（194 项自检、21 条触发测试、A/B 与盲评都在那里跑的）。其他工具的入口文件按各家公开约定生成，脚本本身与 agent 无关，但我没有逐一实测。各家的规则文件格式也在变，以它当时的文档为准。
+> 实测只在 Claude Code 上做过（196 项自检、21 条触发测试、A/B 与盲评都在那里跑的）。其他工具的入口文件按各家公开约定生成，脚本本身与 agent 无关，但我没有逐一实测。各家的规则文件格式也在变，以它当时的文档为准。
 
 ## 准备
 

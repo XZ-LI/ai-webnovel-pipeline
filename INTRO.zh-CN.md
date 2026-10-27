@@ -57,7 +57,7 @@ Cline、Roo Code、Aider、Cursor、Codex CLI、Copilot、Claude Code 都能用�
 - **agent 无关**：权威指南是一份 `AGENTS.md`（跨 agent 的通用约定），Claude Code 读的 `SKILL.md` 只是多了一段 frontmatter。`scripts/install_for_agent.py` 能为 Cursor / Cline / Copilot / Windsurf / Aider 生成各自格式的入口文件，全部指回同一份指南，内容不分叉。15 个脚本里零处 Claude/Anthropic 依赖，只用标准库加 `openai`；唯一的例外是可选的发章脚本，它要额外装浏览器自动化（`patchright loguru pyyaml`），不发章就不用装。
 - **模型无关**：内置 OpenAI / DeepSeek / 通义千问 / Kimi / GLM / 本地 Ollama 六个预设，也接受任何 OpenAI 兼容的 `--base-url`。一条命令设好并当场测通。
 - **人在环**：大纲阶段永远给多个版本让作者挑；诊断和改稿是两条命令，中间卡着作者的决定。不自动替作者改稿，也不替作者决定剧情大方向。
-- **194 项回归自检**，不调 API、几秒跑完，覆盖提示词装配、正文清洗、伏笔台账、信息边界、AI 味检测、题材解析、配置优先级。改完跑一遍就知道有没有改坏。
+- **196 项回归自检**，不调 API、几秒跑完，覆盖提示词装配、正文清洗、伏笔台账、信息边界、AI 味检测、题材解析、配置优先级。改完跑一遍就知道有没有改坏。
 - **测试方法本身也写进了文档**：触发测试（skill 会不会在该用的时候被用上）、行为清单、质量 A/B 与盲评，以及每类测试能回答和不能回答什么问题。
 
 ## 一个诚实的边界

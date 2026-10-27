@@ -10,6 +10,11 @@ novel_config.py — 一处设置，所有脚本生效：API key、服务商地�
                         OPENAI_API_KEY 的人自动走 OpenAI 的 o3，模型与接口成对）
 
 这样三种用法都成立：临时试一下用环境变量，长期用配置文件，单次覆盖用命令行。
+
+例外：key 和接口必须出自同一处。配置文件里已经存了 key，而环境变量只有一个光秃秃的
+OPENAI_API_KEY（没配 OPENAI_BASE_URL）时，用配置文件那一对——那个环境变量多半是给
+别的工具 export 的，拿 OpenAI 的 key 去连配置里的 DeepSeek 只会 401。想让环境变量
+胜出，就把 OPENAI_BASE_URL 一起设上。
 配置文件用 `setup_api.py` 写，别手填（它会设成仅本人可读并先测通）。
 """
 
@@ -103,8 +108,19 @@ def save(data: dict, scope: str = "local") -> Path:
     return p
 
 
+def _use_env_key() -> bool:
+    """这次用环境变量里的 key，还是配置文件里的。见模块说明里的「例外」。"""
+    if not os.environ.get("OPENAI_API_KEY"):
+        return False
+    if os.environ.get("OPENAI_BASE_URL"):
+        return True
+    return not load().get("api_key")
+
+
 def api_key() -> str:
-    return os.environ.get("OPENAI_API_KEY") or load().get("api_key") or ""
+    if _use_env_key():
+        return os.environ["OPENAI_API_KEY"]
+    return load().get("api_key") or ""
 
 
 def _wants_openai() -> bool:
@@ -113,7 +129,7 @@ def _wants_openai() -> bool:
     这种情况下不能把他导向 DeepSeek：拿 OpenAI 的 key 去连 DeepSeek 只会认证失败，
     而报错是 401，看不出是被默认值改了接口。
     """
-    return bool(os.environ.get("OPENAI_API_KEY")) and not (
+    return _use_env_key() and not (
         os.environ.get("OPENAI_BASE_URL") or load().get("base_url"))
 
 
@@ -151,7 +167,7 @@ def describe() -> str:
     """当前生效的配置，key 打码。用于脚本启动时让人确认钱花在哪。"""
     k = api_key()
     masked = f"{k[:6]}…{k[-4:]}" if len(k) > 12 else ("（已设置）" if k else "（未设置）")
-    src = "环境变量" if os.environ.get("OPENAI_API_KEY") else (
+    src = "环境变量" if _use_env_key() else (
         f"配置文件 {config_path()}" if load().get("api_key") else "无")
     url = base_url() or "https://api.openai.com/v1"
     return f"key {masked}（来自{src}）· 接口 {url} · 模型 {model()}"

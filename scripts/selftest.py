@@ -467,6 +467,25 @@ def test_config(monkey_env):
     monkey_env("OPENAI_API_KEY", None)
     nc = load("novel_config")
 
+    # key 和接口要出自同一处：配置文件存了 DeepSeek 那一对，环境变量里却有个给别的
+    # 工具 export 的 OPENAI_API_KEY——曾经是拿 OpenAI 的 key 去连 DeepSeek，401。
+    nc.save({"api_key": "sk-from-config", "base_url": "https://api.deepseek.com/v1",
+             "model": "deepseek-chat"}, scope="global")
+    monkey_env("OPENAI_API_KEY", "sk-from-env")
+    nc = load("novel_config")
+    check("配置文件存了 key 时，光秃秃的 OPENAI_API_KEY 不会把它盖掉",
+          nc.api_key() == "sk-from-config" and "deepseek" in nc.base_url(),
+          f"{nc.api_key()} / {nc.base_url()}")
+    monkey_env("OPENAI_BASE_URL", "https://example.com/v1")
+    nc = load("novel_config")
+    check("环境变量连接口一起给时，环境变量胜出",
+          nc.api_key() == "sk-from-env" and nc.base_url() == "https://example.com/v1",
+          f"{nc.api_key()} / {nc.base_url()}")
+    monkey_env("OPENAI_BASE_URL", None)
+    monkey_env("OPENAI_API_KEY", None)
+    nc.HOME_CONFIG.unlink()
+    nc = load("novel_config")
+
     monkey_env("NOVEL_MODEL", "env-model")
     check("模型优先级：环境变量胜出", nc.model() == "env-model", nc.model())
     monkey_env("NOVEL_MODEL", None)
@@ -677,6 +696,9 @@ def main() -> int:
         tmp = Path(td)
         cwd = Path.cwd()
         os.chdir(tmp)                      # 配置文件按 cwd 查找，隔开真实项目
+        # 家目录那份 ~/.novel-pipeline/config.json 也要隔开：用户用 --global 配过 key，
+        # 配置相关的检查就会读到它、报假失败（缺 key 的那条直接不报错了）
+        monkey_env("HOME", str(tmp / "home"))
         try:
             test_structure()
             test_premise_template()
