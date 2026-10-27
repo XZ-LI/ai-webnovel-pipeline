@@ -26,7 +26,7 @@ ls novels/*/state.json 2>/dev/null && for n in novels/*/; do echo "$(basename "$
 | 用户不满意质量、想调写法 | `references/method.md`（质量把关）；要系统性迭代见 `references/corpus.md` |
 | 用户想把写好的章节发到平台 | `references/publishing.md` |
 | 用户问"能写什么题材"/要改某题材的规则/想加自己的写作要求 | `references/genres.md` |
-| 用户改了这个 skill、想确认没改坏 | `python3 $SK/selftest.py`（不花钱，97 项），细节见 `references/testing.md` |
+| 用户改了这个 skill、想确认没改坏 | `python3 $SK/selftest.py`（不花钱，194 项），细节见 `references/testing.md` |
 | **用户不会装环境、不知道 key 从哪来** | 先跑 `python3 $SK/doctor.py`，再按下面「用户说我不会装」那节替他做 |
 | 环境还没装 / 没 API key / 想换服务商或便宜的模型 | `references/setup.md`；一条命令：`setup_api.py set --provider <id> --key ...` |
 

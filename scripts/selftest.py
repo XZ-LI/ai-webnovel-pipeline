@@ -619,7 +619,10 @@ def test_advertised_count() -> None:
     漂移：加了几十项检查之后，README 和 INTRO 还在写 132，references/testing.md 写 104，
     实际已经 163。项数是对外宣传的一部分，写错了比不写更糟，而这种数字没人会主动回头核。
     """
-    pat = re.compile(r"(\d+)\s*(?:项回归自检|项确定性检查|项自检|项检查|regression checks|checks)")
+    # 第二个分支兜「selftest.py（不花钱，97 项）」这种只写「N 项」的说法：
+    # SKILL.md / AGENTS.md 的路由表里就这么写，曾经停在 97 而实际已经 194。
+    pat = re.compile(r"(\d+)\s*(?:项回归自检|项确定性检查|项自检|项检查|regression checks|checks)"
+                     r"|selftest\.py[^\n]{0,30}?(\d+)\s*项")
     total = len(PASS) + len(FAIL) + 2          # +2 是本函数里的两条
     claims, wrong = [], []
     for doc in ("README.md", "README.zh-CN.md", "INTRO.md", "INTRO.zh-CN.md",
@@ -629,9 +632,10 @@ def test_advertised_count() -> None:
             continue
         t = f.read_text(encoding="utf-8")
         for m in pat.finditer(t):
-            claims.append((doc, int(m.group(1))))
-            if int(m.group(1)) != total:
-                wrong.append(f"{doc} 写的是 {m.group(1)}")
+            n = m.group(1) or m.group(2)
+            claims.append((doc, int(n)))
+            if int(n) != total:
+                wrong.append(f"{doc} 写的是 {n}")
     # 脚本数量同理。文档里一律用阿拉伯数字写，不写 eleven——英文单词没法机器核，
     # 而「11 个脚本」这种话一旦写进 INTRO 就再也没人回头数。
     spat = re.compile(r"(\d+)\s*(?:个脚本|Python scripts|scripts there is)")
