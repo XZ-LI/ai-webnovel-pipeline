@@ -4,6 +4,10 @@
 
 Write a full-length Chinese webnovel with AI, and keep updating it.
 
+![One command writes the next chapter: progress, then the opening of chapter 2](examples/demo.gif)
+
+*A real run, not a mock-up: one command writes chapter 2 (DeepSeek, a few cents). The minute or two of waiting is cut.*
+
 You need no corpus of your own and no plot worked out in advance — say "I want to write a novel" and it walks you through the premise, hands you several opening options, sets up the project, and writes chapter after chapter.
 
 The genre rules are reverse-engineered from a **1,110-novel corpus**, not hand-written prompts. Claude Code, Cursor, Cline, Codex CLI and others all work, and so does no agent at all.
