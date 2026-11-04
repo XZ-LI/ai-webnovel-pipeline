@@ -1,0 +1,11 @@
+{
+  "name": "novel-pipeline",
+  "version": "1.0.0",
+  "description": "Write a full-length Chinese webnovel with AI: layered memory keeps hundreds of chapters consistent, with 37 genre templates. 用 AI 写中文长篇网络小说，分层记忆保长篇一致性，自带 37 个题材模版。",
+  "author": { "name": "XZ-LI", "url": "https://github.com/XZ-LI" },
+  "homepage": "https://xz-li.github.io/blog/building-a-skill.html",
+  "repository": "https://github.com/XZ-LI/ai-webnovel-pipeline",
+  "license": "MIT",
+  "keywords": ["webnovel", "chinese", "writing", "long-form-generation"],
+  "skills": ["./"]
+}

@@ -474,3 +474,7 @@ Your agent reads these as needed; you can also just open them:
 | `assets/templates/INDEX.md` | All 37 genres with maturity grades |
 
 To add your own rules to a genre (tropes you do not want, platform red lines, a pacing pattern you have worked out), write them into `assets/prompts/<male|female>/<genre>.author.txt` — that file is never overwritten by a rebuild.
+
+## License
+
+[MIT](LICENSE). The novels you write with it are yours.
